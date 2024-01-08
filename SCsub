@@ -3,6 +3,7 @@ Import('env')
 
 
 dirs = ['element', 'import', 'import/osm_parser']
+env.Append(CPPPATH=["#streetsgd"]) # this is a relative path
 env.add_source_files(env.modules_sources, "*.cpp"); # Add all cpp files to the build
 
 for dir in dirs:

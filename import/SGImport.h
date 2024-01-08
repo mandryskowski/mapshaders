@@ -2,7 +2,7 @@
 #define SGIMPORT_H
 #include "scene/main/node.h"
 #include "editor/editor_plugin.h"
-#include "modules/streetsgd/element/SGNode.h"
+#include "../element/SGNode.h"
 
 class SGImport : public Node
 {

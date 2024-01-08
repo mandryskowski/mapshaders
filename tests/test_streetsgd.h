@@ -2,8 +2,8 @@
 #define TEST_STREETSGD
 
 #include "tests/test_macros.h"
-#include "modules/streetsgd/import/GeoMap.h"
-#include "modules/streetsgd/import/FileAccessMemoryResizable.h"
+#include "../import/GeoMap.h"
+#include "../import/FileAccessMemoryResizable.h"
 
 namespace TestStreetsGD {
     TEST_CASE ("[Modules][StreetsGD][GeoMap] Calculates geo origin correctly") {
