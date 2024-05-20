@@ -1,0 +1,7 @@
+[submodule "poly2tri"]
+	path = poly2tri
+	url = https://github.com/jhasse/poly2tri.git
+[submodule "godot-cpp"]
+	path = godot-cpp
+	url = https://github.com/godotengine/godot-cpp
+	branch = 4.2

@@ -1,10 +1,17 @@
 # SCsub
 Import('env')
 
+env_sgd = env.Clone()
 
-dirs = ['element', 'import', 'import/osm_parser']
-env.Append(CPPPATH=["#streetsgd"]) # this is a relative path
-env.add_source_files(env.modules_sources, "*.cpp"); # Add all cpp files to the build
+# Poly2tri
+env.Append(LIBPATH=['C:/Users/48511/source/repos/godot-modules/streetsgd/libpath'])
+env.Append(LIBS=['poly2tri'])
+env.Append(LINKFLAGS=['poly2tri.windows.editor.x86_64.lib'])
+
+dirs = ['element', 'import', 'import/osm_parser', 'util']
+env_sgd.Append(CPPPATH=["#streetsgd"])
+env_sgd.Append(CPPPATH=["#streetsgd/poly2tri"])
+env_sgd.add_source_files(env.modules_sources, "*.cpp"); # Add all cpp files to the build
 
 for dir in dirs:
-    env.add_source_files(env.modules_sources, dir + "/*.cpp")
+    env_sgd.add_source_files(env.modules_sources, dir + "/*.cpp")

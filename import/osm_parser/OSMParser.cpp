@@ -5,7 +5,16 @@
 OSMParser::World OSMParser::import(const String& file_name) {
     ParserInfo pi;
     pi.parser.open(file_name);
-    
+
+    for (int i = 0; i < sg_import.parser_nodes.size(); i++) {
+        sg_import.get_node (sg_import.parser_nodes[i])->call("import_begin");
+    }
+
+    for (int i = 0; i < sg_import.parser_nodes.size(); i++) {
+        Variant req = sg_import.get_node (sg_import.parser_nodes[i])->call("get_globals");
+        if (!req.is_null())
+            pi.reqs.merge(req);
+    }
 
     while (pi.parser.read() == 0) {
         XMLParser::NodeType cur_node_type = pi.parser.get_node_type();
@@ -22,7 +31,8 @@ OSMParser::World OSMParser::import(const String& file_name) {
     //_ASSERT(pi.xml_stack.is_empty());
     pi.parser.close();
     WARN_PRINT("Imported " + String::num_int64(pi.world.nodes.size()) + " nodes; " + 
-                String::num_int64(pi.world.ways.size()) + " ways.");
+                String::num_int64(pi.world.ways.size()) + " ways; " +
+                String::num_int64(pi.world.relations.size()) + " relations.");
 
     for (int i = 0; i < sg_import.parser_nodes.size(); i++) {
         sg_import.get_node (sg_import.parser_nodes[i])->call("import_finished");
@@ -60,7 +70,8 @@ OSMParser::World OSMParser::import(const String& file_name) {
 bool OSMParser::parse_xml_node(ParserInfo &pi) {
     XMLParser& parser = pi.parser;
     const bool pop_node = parser.is_empty();
-    Dictionary& d = pi.xml_stack.push_back(Dictionary())->get();
+    pi.xml_stack.push_back(Dictionary());
+    Dictionary d = static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 1]);
     const String element_type = parser.get_node_name();
     d["element_type"] = element_type;
 
@@ -79,19 +90,23 @@ bool OSMParser::parse_xml_node(ParserInfo &pi) {
         d["nodes"] = Array();
     else if (element_type == "relation" || element_type == "area")
     {
-        /* code */
+        d["members"] = Array();
     }
     else if (element_type == "member")
     {
-        /* code */
+        Dictionary member_d;
+        member_d["id"] = parser.get_named_attribute_value("ref").to_int();
+        member_d["role"] = parser.get_named_attribute_value("role");
+        member_d["type"] = parser.get_named_attribute_value("type");
+        static_cast<Array>(static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])["members"]).push_back(member_d);
     }
     else if (element_type == "nd")
     {
-        static_cast<Array>(pi.xml_stack[pi.xml_stack.size() - 2]["nodes"]).push_back(parser.get_named_attribute_value("ref").to_int());
+        static_cast<Array>(static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])["nodes"]).push_back(parser.get_named_attribute_value("ref").to_int());
     }
     else if (element_type == "tag")
     {
-        pi.xml_stack[pi.xml_stack.size() - 2][parser.get_named_attribute_value("k")] = parser.get_named_attribute_value("v");
+        static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])[parser.get_named_attribute_value("k")] = parser.get_named_attribute_value("v");
     }
     
     
@@ -101,11 +116,18 @@ bool OSMParser::parse_xml_node(ParserInfo &pi) {
 }
 
 void OSMParser::parse_xml_node_end(ParserInfo &pi) {
-    Dictionary& item = pi.xml_stack.back()->get();
+    Dictionary item = pi.xml_stack.back();
     const String element_type = item["element_type"].stringify();
-    unsigned int tile = pi.geomap->grid_index (item["pos"]);
 
-    if (tile >= 25) {
+    if (element_type != "node" && element_type != "way" && element_type != "relation") {
+        pi.xml_stack.pop_back();
+        return;
+    }
+
+    unsigned int tile = get_element_tile(element_type, pi, item);
+
+    //tile = 0;
+    if (tile >= 5 * 5) {
         pi.xml_stack.pop_back();
         return;
     }
@@ -119,9 +141,14 @@ void OSMParser::parse_xml_node_end(ParserInfo &pi) {
         //Error res = sg_import.emit_signal("import_node", item, *pi.tile_bytes[tile]);
     } else if (element_type == "way") {
         
-        pi.world.ways[(int64_t)item["id"]] = item;
+        pi.world.ways[(int64_t)item["id"]] = item;  
         for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
             sg_import.get_node (sg_import.parser_nodes[i])->call ("import_way", item, *pi.tile_bytes[tile][i]);
+        }
+    } else if (element_type == "relation") {
+        pi.world.relations[(int64_t)item["id"]] = item;
+        for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
+            sg_import.get_node (sg_import.parser_nodes[i])->call ("import_relation", item, *pi.tile_bytes[tile][i]);
         }
     }
     
@@ -174,4 +201,38 @@ void OSMParser::parse_bounds(ParserInfo & pi) {
 void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
     d["pos"] = pi.geomap->geo_to_world(GeoCoords(Longitude::degrees(pi.parser.get_named_attribute_value("lon").to_float()),
                                                  Latitude ::degrees(pi.parser.get_named_attribute_value("lat").to_float())));
+}
+
+unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo& pi, Dictionary& element) {
+    if (element_type == "node")
+        return pi.geomap->grid_index (element["pos"]);
+    else if (element_type == "way") {
+        const Array& nodes = static_cast<Array>(element["nodes"]);
+        if (nodes.is_empty()) {
+            ERR_PRINT_ED("Way " + static_cast<String>(element.get("id", "<invalid_id>")) + " has no nodes.");
+            return 0;
+        }
+
+        return get_element_tile("node", pi, pi.world.nodes[nodes[0]]);
+    }
+    else if (element_type == "relation") {
+        const Array& members = static_cast<Array>(element["members"]);
+        
+        if (members.is_empty()) {
+            ERR_PRINT_ED("Relation " + static_cast<String>(element.get("id", "<invalid_id>")) + " has no members.");
+            return 0;
+        }
+
+        for (int i = 0; i < members.size(); i++) {
+            const String& role = static_cast<Dictionary>(members[i])["role"];
+            if (role == "node") {
+                return get_element_tile("node", pi, pi.world.nodes[members[i]]);
+            } else if (role == "way") {
+                return get_element_tile("way", pi, pi.world.ways[members[i]]);
+            }
+        }
+    }
+
+    ERR_PRINT_ED("Invalid " + element_type + ".");
+    return 0;
 }

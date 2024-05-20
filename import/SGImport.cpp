@@ -40,7 +40,7 @@ void SGImport::load_tile(unsigned int index) {
 }
 
 void SGImport::load_tiles(bool) {
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < 5 * 5; i++) {
         load_tile (i);
     }
 }

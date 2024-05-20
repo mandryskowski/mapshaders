@@ -1,7 +1,6 @@
 #ifndef SGIMPORT_H
 #define SGIMPORT_H
 #include "scene/main/node.h"
-#include "editor/editor_plugin.h"
 #include "../element/SGNode.h"
 
 class SGImport : public Node
@@ -11,6 +10,7 @@ class SGImport : public Node
     void set_origin_longitude(double lon) {
 
     }
+    
     double get_origin_longitude() {
         return 0.0;
     }
