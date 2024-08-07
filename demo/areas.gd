@@ -17,15 +17,12 @@ func import_way(osm_dict : Dictionary, fa : StreamPeer):
 		tile_info[fa] = {"ways": {}, "rels": []}
 	tile_info[fa]["ways"][osm_dict["id"]] = osm_dict
 	ways[osm_dict["id"]] = osm_dict
-	if osm_dict.has("area"):
-		print("area:", osm_dict["area"])
 	
 func import_relation(osm_dict : Dictionary, fa : StreamPeer):
 	# Hospital test
 	if (osm_dict["id"] == 106417):
 		return
 	if (osm_dict["id"] == 15697701 or true):
-		print(osm_dict["id"])
 		var outer = []
 		var inners = []
 		for member in osm_dict["members"]:

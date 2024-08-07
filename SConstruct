@@ -23,9 +23,10 @@ sources.extend(Glob("src/import/osm_parser/*.cpp"))
 #sources.extend(Glob("#streetsgd/*.cpp"))
 #sources.extend(Glob("src/poly2tri/poly2tri/sweep/*.cc"))
 #sources.extend(Glob("src/poly2tri/poly2tri/common/*.cc"))
+sources = [source for source in sources if not "polyskel-cpp-port" in str(source)]
 
-env.Append(LIBPATH=["src/poly2tri/build"])
-env.Append(LIBS=["poly2tri"])
+env.Append(LIBPATH=["src/poly2tri/build", "src/polyskel-cpp-port/build/Release"])
+env.Append(LIBS=["poly2tri", "polyskel"])
 
 for x in sources:
     print(x)

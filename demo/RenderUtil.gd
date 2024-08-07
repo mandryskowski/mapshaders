@@ -78,7 +78,7 @@ static func pyramid(verts : PackedVector3Array, height : float = 0.0, min_height
 		
 		return arrays
 
-static func skillion(verts : PackedVector3Array, height : float = 0.0, 					 min_height :float = 0.0, direction_deg : float = 0.0) -> Array:
+static func skillion(verts : PackedVector3Array, height : float = 0.0, min_height :float = 0.0, direction_deg : float = 0.0) -> Array:
 	if verts.is_empty():
 		return []
 		
@@ -112,6 +112,98 @@ static func skillion(verts : PackedVector3Array, height : float = 0.0, 					 min
 		arrays[Mesh.ARRAY_NORMAL].push_back(Vector3(0,1,0))
 	
 	return arrays
+	
+static func hipped(verts : PackedVector3Array, height : float = 0.0, min_height :float = 0.0) -> Array:
+	if verts.is_empty():
+		return []
+		
+	var nodes_2d = PackedVector2Array()
+	for v in verts:
+		nodes_2d.push_back(Vector2(v.x, v.z))
+	
+	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TEX_UV])
+	nodes_2d = [Vector2(40, 40),
+Vector2(40, 310),
+Vector2(520, 310),
+Vector2(520, 40)
+]
+	var subtrees = PolyUtil.new().straight_skeleton(nodes_2d, [])
+	subtrees[0].source = Vector2(40, 175)
+	subtrees[1].source = Vector2(520, 175)
+	
+	subtrees[1].sinks[0] = subtrees[0].source
+	# BFS
+	var subtree_map = {}
+	for subtree in subtrees:
+		subtree_map[subtree.source] = subtree
+	
+	for i in range(len(nodes_2d)):
+		var v1 = nodes_2d[i] # this vertex
+		var v2 = nodes_2d[(i + 1) % len(nodes_2d)] # next vertex 
+		
+		var queue = []
+		var visited = {}
+		var subtrees_to_v2 = [] # subtrees from v1 to v2
+		
+		for subtree : SkeletonSubtree in subtrees:
+			var found = false
+			for sink in subtree.sinks:
+				if sink.is_equal_approx(v1):
+					queue.append([subtree])
+					visited[subtree] = true
+					found = true
+					break
+			if found:
+				break
+		
+		while queue.size() > 0:
+			var nodes_so_far : Array = queue.pop_front()
+			var current_node: SkeletonSubtree = nodes_so_far.back()
+			
+			if v2 in current_node.sinks:
+				subtrees_to_v2 = nodes_so_far
+				break
+				
+			for neighbor in current_node.sinks:
+				if subtree_map.has(neighbor):
+					var neighbor_subtree = subtree_map[neighbor]
+					if not visited.has(neighbor_subtree):
+						queue.append(nodes_so_far + [neighbor_subtree])
+						visited[neighbor_subtree] = true
+			for subtree in subtrees:
+				if current_node.source in subtree.sinks:
+					if not visited.has(subtree):
+						queue.append(nodes_so_far + [subtree])
+						visited[subtree] = true
+				
+		var poly = [v1]
+		for subtree : SkeletonSubtree in subtrees_to_v2:
+			poly.append(subtree.source)
+		poly.append(v2)
+		
+		var triangulated = Geometry2D.triangulate_polygon(poly)
+		print("triangulated is",  triangulated)
+		
+		for tri in range(0, len(triangulated), 3):
+			var vs = []
+			
+			for tri_v in range(3):
+				var v_index = triangulated[tri + tri_v]
+				var v = Vector3(poly[v_index].x, min_height, poly[v_index].y)
+				if v_index != 0 and v_index != len(poly) - 1:
+					v.y += subtrees_to_v2[v_index - 1].height
+					
+				vs.append(v)
+					
+			var normal = (vs[2] - vs[1]).cross(vs[1] - vs[0])
+					
+			for v in vs:
+				arrays[Mesh.ARRAY_VERTEX].push_back(v)
+				arrays[Mesh.ARRAY_TEX_UV].push_back(Vector2(v.x, v.z))
+				arrays[Mesh.ARRAY_NORMAL].push_back(normal)
+			
+	return arrays
+	
 	
 static func achild(parent, node, name):
 	node.name = name
@@ -173,13 +265,15 @@ enum RoofType
 {
 	FLAT,
 	PYRAMIDAL,
-	SKILLION
+	SKILLION,
+	HIPPED
 }
 
 static func get_roof_type(code : String):
 	match code:
 		"pyramidal": return RoofType.PYRAMIDAL
 		"skillion": return RoofType.SKILLION
+		"hipped": return RoofType.HIPPED
 		"flat", _: return RoofType.FLAT
 		
 static func osm_to_gd_color(code : String):

@@ -5,3 +5,6 @@
 	path = godot-cpp
 	url = https://github.com/godotengine/godot-cpp
 	branch = 4.2
+[submodule "src/polyskel-cpp-port"]
+	path = src/polyskel-cpp-port
+	url = https://github.com/mandryskowski/polyskel-cpp-port.git

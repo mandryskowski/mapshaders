@@ -8,7 +8,8 @@ enum RoofType
 {
 	FLAT,
 	PYRAMIDAL,
-	SKILLION
+	SKILLION,
+	HIPPED
 }
 
 func get_required_globals():
@@ -52,13 +53,6 @@ func import_finished():
 	for child in get_children():
 		remove_child(child)
 
-
-	
-func get_roof_type(code : String):
-	match code:
-		"pyramidal": return RoofType.PYRAMIDAL
-		"skillion": return RoofType.SKILLION
-		"flat", _: return RoofType.FLAT
 func get_roof_arrays(d : Dictionary):
 	var nodes_3d = PackedVector3Array()
 	for n in d["nodes"]:
@@ -72,6 +66,8 @@ func get_roof_arrays(d : Dictionary):
 			return RenderUtil.pyramid(nodes_3d, d.get("roof_height", max_height - min_height), max_height)
 		RoofType.SKILLION:
 			return RenderUtil.skillion(nodes_3d, d.get("roof_height", max_height - min_height), max_height, d["roof_dir"])
+		RoofType.HIPPED:
+			return RenderUtil.hipped(nodes_3d, d.get("roof_height", max_height - min_height), max_height)
 
 func load_tile(fa : FileAccess):
 	var paths = fa.get_var()

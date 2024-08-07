@@ -70,10 +70,6 @@ OSMParser::World OSMParser::import(const String& file_name) {
             out->store_buffer (arr);
         }
         const_cast<int64_t&>(tile_lens[i]) = out->get_position() - tile_offs[i];
-        WARN_PRINT("Tile " + String::num_int64(i) + " size is  " + String::num_int64(tile_lens[i]));
-        for (int j = 0; j < sg_import.parser_nodes.size(); j++) {
-            WARN_PRINT(tile_fas[j]->to_string());
-        }
     }
     
     // Overwrite tile offsets at the beginning
