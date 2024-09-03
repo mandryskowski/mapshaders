@@ -2,8 +2,9 @@
 #define OSMPARSER_H
 #include "../GeoMap.h"
 #include "../FileAccessMemoryResizable.h"
-#include "../SGImport.h"
+#include "../Parser.h"
 #include "../../util/GlobalRequirements.h"
+#include "OSMHeightmap.h"
 
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -11,25 +12,24 @@
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/templates/vector.hpp>
 
-class OSMParser {
+class OSMParser : public Parser {
 public:
+    using Parser::Parser;
     struct World {
         godot::HashMap<int64_t, godot::Dictionary> nodes;
         godot::HashMap<int64_t, godot::Dictionary> ways;
         godot::HashMap<int64_t, godot::Dictionary> relations;
     };
 
-    OSMParser(SGImport& sg_import): sg_import(sg_import) {}
-
-    World import(const godot::String& file_name);
+    godot::Ref<GeoMap> import(const godot::String& file_name, godot::Ref<GeoMap> geomap = nullptr, godot::Ref<OSMHeightmap> heightmap = nullptr);
 
 private:
-    SGImport& sg_import;
     struct ParserInfo {
         godot::XMLParser parser;
         godot::Array xml_stack; // Array of Dictionaries.
         GlobalRequirements reqs;
-        std::unique_ptr<GeoMap> geomap;
+        godot::Ref<GeoMap> geomap;
+        godot::Ref<OSMHeightmap> heightmap;
         godot::Vector<godot::Vector<godot::Ref<FileAccessMemoryResizable>>> tile_bytes;
         World world;
         ParserInfo() : geomap(nullptr) {}

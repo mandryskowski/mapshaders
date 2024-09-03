@@ -2,19 +2,24 @@
 #include <godot_cpp/classes/xml_parser.hpp>
 #include <godot_cpp/templates/list.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/node.hpp>
 
 using namespace godot;
 
-OSMParser::World OSMParser::import(const String& file_name) {
+godot::Ref<GeoMap> OSMParser::import(const String& file_name, godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap> heightmap) {
     ParserInfo pi;
+    pi.geomap = geomap;
+    pi.heightmap = heightmap;
     pi.parser.open(file_name);
 
-    for (int i = 0; i < sg_import.parser_nodes.size(); i++) {
-        sg_import.get_node<Node> (sg_import.parser_nodes[i])->call("import_begin");
+    auto shader_nodes = this->get_shader_nodes();
+
+    for (int i = 0; i < shader_nodes.size(); i++) {
+        Object::cast_to<Node>(shader_nodes[i])->call("import_begin");
     }
 
-    for (int i = 0; i < sg_import.parser_nodes.size(); i++) {
-        Variant req = sg_import.get_node<Node> (sg_import.parser_nodes[i])->call("get_globals");
+    for (int i = 0; i < shader_nodes.size(); i++) {
+        Variant req = Object::cast_to<Node>(shader_nodes[i])->call("get_globals");
         if (req.get_type() != Variant::Type::NIL)
             pi.reqs.merge(req);
     }
@@ -38,8 +43,8 @@ OSMParser::World OSMParser::import(const String& file_name) {
                 String::num_int64(pi.world.ways.size()) + " ways; " +
                 String::num_int64(pi.world.relations.size()) + " relations.");
 
-    for (int i = 0; i < sg_import.parser_nodes.size(); i++) {
-        sg_import.get_node<Node> (sg_import.parser_nodes[i])->call("import_finished");
+    for (int i = 0; i < shader_nodes.size(); i++) {
+        Object::cast_to<Node>(shader_nodes[i])->call("import_finished");
     }
 
     Ref<FileAccess> out = FileAccess::open("res://parsed.sgdmap", FileAccess::WRITE);
@@ -54,7 +59,7 @@ OSMParser::World OSMParser::import(const String& file_name) {
         const_cast<int64_t&>(tile_offs[i]) = out->get_position();
         Vector<Ref<FileAccessMemoryResizable>>& tile_fas = const_cast<Vector<Ref<FileAccessMemoryResizable>>&>(pi.tile_bytes[i]);
 
-        for (int j = 0; j < sg_import.parser_nodes.size(); j++) {
+        for (int j = 0; j < shader_nodes.size(); j++) {
             Ref<FileAccessMemoryResizable>& fa = const_cast<Ref<FileAccessMemoryResizable>&>(tile_fas[j]);
 
             size_t len = fa->get_position();
@@ -76,7 +81,7 @@ OSMParser::World OSMParser::import(const String& file_name) {
     out->seek(0);
     out->store_var (tile_offs);
     out->store_var (tile_lens);
-    return pi.world;
+    return pi.geomap;
 }
 
 bool OSMParser::parse_xml_node(ParserInfo &pi) {
@@ -130,6 +135,7 @@ bool OSMParser::parse_xml_node(ParserInfo &pi) {
 void OSMParser::parse_xml_node_end(ParserInfo &pi) {
     Dictionary item = pi.xml_stack.back();
     const String element_type = item["element_type"].stringify();
+    auto shader_nodes = this->get_shader_nodes();
 
     if (element_type != "node" && element_type != "way" && element_type != "relation") {
         pi.xml_stack.pop_back();
@@ -148,19 +154,20 @@ void OSMParser::parse_xml_node_end(ParserInfo &pi) {
     if (element_type == "node") {
         pi.world.nodes[(int64_t)item["id"]] = item;
         for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
-            sg_import.get_node<Node> (sg_import.parser_nodes[i])->call ("import_node", item, pi.tile_bytes[tile][i]);
+            Object::cast_to<Node>(shader_nodes[i])->call("import_node", item, pi.tile_bytes[tile][i]);
+
         }
         //Error res = sg_import.emit_signal("import_node", item, *pi.tile_bytes[tile]);
     } else if (element_type == "way") {
         
         pi.world.ways[(int64_t)item["id"]] = item;  
         for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
-            sg_import.get_node<Node> (sg_import.parser_nodes[i])->call ("import_way", item, pi.tile_bytes[tile][i]);
+            Object::cast_to<Node>(shader_nodes[i])->call("import_way", item, pi.tile_bytes[tile][i]);
         }
     } else if (element_type == "relation") {
         pi.world.relations[(int64_t)item["id"]] = item;
         for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
-            sg_import.get_node<Node> (sg_import.parser_nodes[i])->call ("import_relation", item, pi.tile_bytes[tile][i]);
+            Object::cast_to<Node>(shader_nodes[i])->call("import_relation", item, pi.tile_bytes[tile][i]);
         }
     }
     
@@ -173,24 +180,28 @@ double lerp(double a, double b, double t) {
 
 void OSMParser::parse_bounds(ParserInfo & pi) {
     const int grid_size = 5;
-    pi.geomap = std::make_unique<GeoMap> (
-    GeoCoords(
-    Longitude::degrees(pi.parser.get_named_attribute_value("minlon").to_float()),
-    Latitude::degrees(pi.parser.get_named_attribute_value("minlat").to_float())),
+    auto shader_nodes = this->get_shader_nodes();
     
-    GeoCoords(
-    Longitude::degrees(pi.parser.get_named_attribute_value("maxlon").to_float()),
-    Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float())),
-    
-    grid_size);
+    if (pi.geomap.is_null()) {
+        pi.geomap = godot::Ref<GeoMap>(memnew(GeoMap(
+        GeoCoords(
+        Longitude::degrees(pi.parser.get_named_attribute_value("minlon").to_float()),
+        Latitude::degrees(pi.parser.get_named_attribute_value("minlat").to_float())),
+        
+        GeoCoords(
+        Longitude::degrees(pi.parser.get_named_attribute_value("maxlon").to_float()),
+        Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float())),
+        
+        grid_size)));
+    }
 
     pi.tile_bytes.clear();
     pi.tile_bytes.resize (grid_size * grid_size);
 
     for (int i = 0; i < grid_size * grid_size; i++) {
         Vector<Ref<FileAccessMemoryResizable>>& tile_fas = const_cast<Vector<Ref<FileAccessMemoryResizable>>&>(pi.tile_bytes[i]);
-        tile_fas.resize (sg_import.parser_nodes.size());
-        for (int j = 0; j < sg_import.parser_nodes.size(); j++) {
+        tile_fas.resize (shader_nodes.size());
+        for (int j = 0; j < shader_nodes.size(); j++) {
             Ref<FileAccessMemoryResizable>& fa = const_cast<Ref<FileAccessMemoryResizable>&>(tile_fas[j]);
             fa.instantiate();
             //fa->open_resizable (2);
@@ -211,8 +222,13 @@ void OSMParser::parse_bounds(ParserInfo & pi) {
 }
 
 void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
-    d["pos"] = pi.geomap->geo_to_world(GeoCoords(Longitude::degrees(pi.parser.get_named_attribute_value("lon").to_float()),
-                                                 Latitude ::degrees(pi.parser.get_named_attribute_value("lat").to_float())));
+    GeoCoords coords(Longitude::degrees(pi.parser.get_named_attribute_value("lon").to_float()),
+                     Latitude::degrees(pi.parser.get_named_attribute_value("lat").to_float()));
+    Vector2 pos = pi.geomap->geo_to_world(coords);
+
+    d["pos"] = pos;
+
+    d["pos3d"] = pi.heightmap.is_valid() ? Vector3(pos.x, pi.heightmap->getElevation(coords), pos.y) : Vector3(pos.x, 0.0, pos.y);
 }
 
 unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo& pi, Dictionary& element) {

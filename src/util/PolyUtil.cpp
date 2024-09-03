@@ -102,7 +102,6 @@ Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
         }
     }
 
-    std::cout << meow();
     std::cout << "Running straight skeleton with " << polyskel_outer.size() << std::endl;
 
     auto result = skeletonize(polyskel_outer, polyskel_holes);

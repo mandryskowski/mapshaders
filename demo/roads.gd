@@ -10,13 +10,13 @@ func import_begin():
 		self.remove_child(child)
 
 func import_node(osm_dict : Dictionary, fa : StreamPeer):
-	node_pos[osm_dict["id"]] = osm_dict["pos"]
+	node_pos[osm_dict["id"]] = osm_dict["pos3d"]
 	
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
 	
 
 	if osm_dict.has("highway"):
-		var path : PackedVector2Array = []
+		var path : PackedVector3Array = []
 		for node_id in osm_dict["nodes"]:
 			if !node_pos.has(node_id):
 				continue
@@ -44,7 +44,7 @@ func load_tile(fa : FileAccess):
 		var child : Path3D = achild(self, Path3D.new(), path["name"])
 		child.curve = Curve3D.new()
 		for node in path["nodes"]:
-			child.curve.add_point(Vector3(node.x, 0.0, node.y))
+			child.curve.add_point(node)
 			
 		var poly : CSGPolygon3D = achild(child, CSGPolygon3D.new(), "polygon")
 		poly.mode = CSGPolygon3D.MODE_PATH

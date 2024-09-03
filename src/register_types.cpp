@@ -1,7 +1,8 @@
 #include "register_types.h"
 #include <godot_cpp/core/class_db.hpp>
 
-#include "element/SGNode.h"
+#include "import/elevation/ElevationParser.h"
+
 #include "import/SGImport.h"
 #define P2T_STATIC_EXPORTS
 #include "util/PolyUtil.h"
@@ -18,6 +19,7 @@ void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
 		return;
 
 	ClassDB::register_class<SGImport>();
+	ClassDB::register_class<ElevationGrid>();
 	ClassDB::register_class<SkeletonSubtree>();
 	ClassDB::register_class<PolyUtil>();
 	ClassDB::register_class<GlobalRequirements>();

@@ -27,6 +27,12 @@ GeoMap::GeoMap(const GeoCoords &min_bounds, const GeoCoords &max_bounds, int64_t
     grid_negative_corner (Vector2(0.0, 0.0)),
     grid_element_size (geocoords_to_flat_distance (max_bounds - min_bounds, (max_bounds.lat + min_bounds.lat) * 0.5) * (1.0 / static_cast<double>(grid_size))) {
     grid_negative_corner = world_to_grid (geo_to_world (min_bounds) * Vector2(1.0, -1.0)); // Y coordinate is flipped due to Godot's righthandedness
+    WARN_PRINT("Grid element size: " + String::num_real(grid_element_size.x) + " " + String::num_real(grid_element_size.y));
+    WARN_PRINT("Grid negative corner: " + String::num_real(grid_negative_corner.x) + " " + String::num_real(grid_negative_corner.y));
+    WARN_PRINT("Grid min bounds in geo space: " + String::num_real(min_bounds.lon.get_degrees()) + " " + String::num_real(min_bounds.lat.get_degrees()));
+    WARN_PRINT("Grid min bounds in world space: " + String::num_real(geo_to_world(min_bounds).x) + " " + String::num_real(geo_to_world(min_bounds).y));
+    WARN_PRINT("Grid max bounds in geo space: " + String::num_real(max_bounds.lon.get_degrees()) + " " + String::num_real(max_bounds.lat.get_degrees()));
+    WARN_PRINT("Grid max bounds in world space: " + String::num_real(geo_to_world(max_bounds).x) + " " + String::num_real(geo_to_world(max_bounds).y));
 }
 
 unsigned int GeoMap::grid_index (Vector2 world_space) {

@@ -2,6 +2,7 @@
 #define GEOMAP_H
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/classes/ref_counted.hpp>
 
 /*
        LATITUDE
@@ -42,6 +43,18 @@ struct Longitude {
         return Longitude(radians);
     }
 
+    static Longitude zero() {
+        return Longitude(0.0);
+    }
+
+    double get_radians() const {
+        return value;
+    }
+
+    double get_degrees() const {
+        return value * 180.0 / Math_PI;
+    }
+
     Longitude operator+(Longitude rhs) const {
         return Longitude(value + rhs.value); 
     }
@@ -67,6 +80,18 @@ struct Latitude {
     
     static Latitude radians(double radians) {
         return Latitude(radians);
+    }
+
+    static Latitude zero() {
+        return Latitude(0.0);
+    }
+
+    double get_radians() const {
+        return value;
+    }
+
+    double get_degrees() const {
+        return value * 180.0 / Math_PI;
     }
 
     Latitude operator+(Latitude rhs) const {
@@ -103,7 +128,8 @@ struct GeoCoords {
     }
 };
 
-class GeoMap {
+class GeoMap : public godot::RefCounted {
+    GDCLASS(GeoMap, godot::RefCounted);
     // 1 unit is 1 metre.
     #define UNIT_IN_METRES 1.0
     // 1 degree of latitude is 111.139 km.

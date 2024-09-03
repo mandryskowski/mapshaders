@@ -17,7 +17,3 @@ config/icon="res://icon.svg"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/streetsgd/plugin.cfg")
-
-[rendering]
-
-anti_aliasing/quality/use_taa=true

@@ -29,7 +29,6 @@ class PolyUtil : public godot::RefCounted
 public:
     __declspec(dllexport) godot::PackedVector2Array triangulate_with_holes(godot::PackedVector2Array outer, godot::Array holes);
     __declspec(dllexport) godot::Array straight_skeleton(godot::PackedVector2Array outer, godot::Array holes);
-
 protected:
     static void _bind_methods();
 };

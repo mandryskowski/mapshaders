@@ -51,9 +51,10 @@ static func polygon(verts : PackedVector3Array, height : float = 0.0) -> Array:
 		return arrays
 
 static func polygon_triangles(triangles : PackedVector2Array, height = 0.0):
-	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL])
+	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_TEX_UV, Mesh.ARRAY_NORMAL])
 	for v in triangles:
 		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v.x, height, v.y))
+		arrays[Mesh.ARRAY_TEX_UV].append(Vector2(v.x, v.y))
 		arrays[Mesh.ARRAY_NORMAL].append(Vector3(0, 1, 0))
 		
 	return arrays
@@ -235,16 +236,16 @@ static func wall_poly_np(parent, name, nodes, color, min_height, max_height):
 		var v_next = nodes[i+1]
 		
 		# Triangle 1
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, min_height, v_this.y))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, min_height, v_next.y))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, max_height, v_next.y))
+		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, v_this.y + min_height, v_this.z))
+		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, v_next.y + min_height, v_next.z))
+		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, v_next.y + max_height, v_next.z))
 		
 		# Triangle 2
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, min_height, v_this.y))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, max_height, v_next.y))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, max_height, v_this.y))
+		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, v_this.y + min_height, v_this.z))
+		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, v_next.y + max_height, v_next.z))
+		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, v_this.y + max_height, v_this.z))
 		
-		var normal = Vector3(v_next.x - v_this.x, 0, v_next.y - v_this.y).cross(-Vector3.UP)
+		var normal = Vector3(v_next.x - v_this.x, 0, v_next.z - v_this.z).cross(-Vector3.UP)
 		
 		# Each vertex has the same normal
 		for j in range(6):
@@ -260,6 +261,8 @@ static func area_poly(parent, name, arrays, color = Color.WHITE):
 		area.mesh.surface_set_material(0, StandardMaterial3D.new())
 		area.mesh.surface_get_material(0).cull_mode = StandardMaterial3D.CULL_DISABLED
 		area.mesh.surface_get_material(0).albedo_color = color
+	
+	return area
 
 enum RoofType
 {
@@ -279,7 +282,7 @@ static func get_roof_type(code : String):
 static func osm_to_gd_color(code : String):
 	return Color(code.replace("grey", "gray"))
 
-static func building_info(osm_d : Dictionary, nodes : PackedVector2Array):
+static func building_info(osm_d : Dictionary, nodes : PackedVector3Array):
 	var d = {"name" : osm_d.get("name", str(osm_d["id"])), "nodes": nodes,
 			 "max_height": osm_d.get("height", "3").to_float(),
 			 "min_height": osm_d.get("min_height", "0").to_float(),

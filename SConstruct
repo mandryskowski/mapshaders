@@ -18,6 +18,8 @@ env.Append(CPPPATH=["src/"])
 sources = Glob("*src/*.cpp")
 sources.extend(Glob("src/**/*.cpp"))
 sources.extend(Glob("src/import/osm_parser/*.cpp"))
+sources.extend(Glob("src/import/elevation/*.cpp"))
+sources.extend(Glob("src/import/coastline/*.cpp"))
 #for dir in dirs:
 #    sources.extend(Glob("src/" + dir + "/*.cpp"))
 #sources.extend(Glob("#streetsgd/*.cpp"))
@@ -25,7 +27,7 @@ sources.extend(Glob("src/import/osm_parser/*.cpp"))
 #sources.extend(Glob("src/poly2tri/poly2tri/common/*.cc"))
 sources = [source for source in sources if not "polyskel-cpp-port" in str(source)]
 
-env.Append(LIBPATH=["src/poly2tri/build", "src/polyskel-cpp-port/build/Release"])
+env.Append(LIBPATH=["src/poly2tri/build/Release", "src/polyskel-cpp-port/build/Release"])
 env.Append(LIBS=["poly2tri", "polyskel"])
 
 for x in sources:

@@ -21,7 +21,7 @@ func import_begin():
 	building_part_nodes = {}
 
 func import_node(osm_dict : Dictionary, fa : StreamPeer):
-	node_pos[osm_dict["id"]] = osm_dict["pos"]
+	node_pos[osm_dict["id"]] = osm_dict["pos3d"]
 	
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
 	if osm_dict.get("building:part", "no") != "no":
@@ -39,7 +39,7 @@ func import_way(osm_dict : Dictionary, fa : StreamPeer):
 
 	if !tile_info.has(fa):
 		tile_info[fa] = []
-	var path : PackedVector2Array = []
+	var path : PackedVector3Array = []
 	for node_id in osm_dict["nodes"]:
 		if !node_pos.has(node_id):
 			continue
@@ -54,20 +54,18 @@ func import_finished():
 		remove_child(child)
 
 func get_roof_arrays(d : Dictionary):
-	var nodes_3d = PackedVector3Array()
-	for n in d["nodes"]:
-		nodes_3d.push_back(Vector3(n.x, 0.0, n.y))
+	var nodes = d["nodes"]
 	var max_height = d["max_height"]
 	var min_height = d["min_height"]
 	match d["roof_type"]:
 		RoofType.FLAT:
-			return RenderUtil.polygon(nodes_3d, max_height)
+			return RenderUtil.polygon(nodes, max_height)
 		RoofType.PYRAMIDAL:
-			return RenderUtil.pyramid(nodes_3d, d.get("roof_height", max_height - min_height), max_height)
+			return RenderUtil.pyramid(nodes, d.get("roof_height", max_height - min_height), max_height)
 		RoofType.SKILLION:
-			return RenderUtil.skillion(nodes_3d, d.get("roof_height", max_height - min_height), max_height, d["roof_dir"])
+			return RenderUtil.skillion(nodes, d.get("roof_height", max_height - min_height), max_height, d["roof_dir"])
 		RoofType.HIPPED:
-			return RenderUtil.hipped(nodes_3d, d.get("roof_height", max_height - min_height), max_height)
+			return RenderUtil.hipped(nodes, d.get("roof_height", max_height - min_height), max_height)
 
 func load_tile(fa : FileAccess):
 	var paths = fa.get_var()
@@ -88,17 +86,14 @@ func load_tile(fa : FileAccess):
 
 		RenderUtil.area_poly(building, "roof", get_roof_arrays(path), roof_color)
 		
-		if max_height - min_height > 0:
-			var nodes_3d = PackedVector3Array()
-			for n in path["nodes"]:
-				nodes_3d.push_back(Vector3(n.x, 0.0, n.y))
-			RenderUtil.area_poly(building, "floor", RenderUtil.polygon(nodes_3d, min_height), color)
+		#if max_height - min_height > 0:
+		#	RenderUtil.area_poly(building, "floor", RenderUtil.polygon(path["nodes"], min_height), color)
 		
 		# Label
-		var label = Label3D.new()
-		label.position = Vector3(path["nodes"][0].x,max_height + 10.0, path["nodes"][0].y)
-		label.pixel_size = 0.04
-		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-		RenderUtil.achild(building, label, "Keys")
-		label.text = path["dupa"]
+		#var label = Label3D.new()
+		#label.position = Vector3(path["nodes"][0].x,max_height + 10.0, path["nodes"][0].y)
+		#label.pixel_size = 0.04
+		#label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		#RenderUtil.achild(building, label, "Keys")
+		#label.text = path["dupa"]
 		
