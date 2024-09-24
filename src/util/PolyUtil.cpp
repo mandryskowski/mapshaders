@@ -2,6 +2,7 @@
 #define P2T_STATIC_EXPORTS
 #include "../poly2tri/poly2tri/poly2tri.h"
 #include "../poly2tri/poly2tri/sweep/cdt.h"
+#include "../poly2tri/poly2tri/common/utils.h"
 #include "../polyskel-cpp-port/polyskel.h"
 #include "../polyskel-cpp-port/vec.h"
 #include "../polyskel-cpp-port/lavertex.h"
@@ -40,13 +41,28 @@ void SkeletonSubtree::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::PACKED_VECTOR2_ARRAY, "sinks"), "set_sinks", "get_sinks");
 }
 
+bool polygon_invalid_edges_check(const std::vector<p2t::Point*>& polygon) {
+    const double epsilon = 1e-12;
+    for (int i = 0; i < polygon.size() - 1; i++) {
+        int j = i + 1;
+        if (std::abs(polygon[i]->x - polygon[j]->x) < epsilon && std::abs(polygon[i]->y - polygon[j]->y) < epsilon) {
+            ERR_PRINT("Duplicate point in polygon");
+            return false;
+        }
+    }
+    return true;
+}
+
 PackedVector2Array PolyUtil::triangulate_with_holes(PackedVector2Array outer, Array holes) {
-    WARN_PRINT("Running triangulate w holes");
+    //WARN_PRINT("Running triangulate w holes w outer size: " + String::num_int64(outer.size()) + " hole count: " + String::num_int64(holes.size()));
     // Create polyline and CDT
     std::vector<p2t::Point*> polyline;
     polyline.reserve(outer.size());
     for (const auto& v : outer)
         polyline.push_back(new p2t::Point(v.x, v.y));
+
+    if (!polygon_invalid_edges_check(polyline))
+        return PackedVector2Array();
 
     polyline.pop_back();
     p2t::CDT* cdt = new p2t::CDT(polyline);
@@ -58,6 +74,10 @@ PackedVector2Array PolyUtil::triangulate_with_holes(PackedVector2Array outer, Ar
         for (const auto& v : hole) {
             polyline.push_back(new p2t::Point(v.x, v.y));
         }
+        
+        if (!polygon_invalid_edges_check(polyline))
+            return PackedVector2Array();
+
         polyline.pop_back();
 
         cdt->AddHole(polyline);
@@ -67,6 +87,8 @@ PackedVector2Array PolyUtil::triangulate_with_holes(PackedVector2Array outer, Ar
         }
     }
 
+
+    
     cdt->Triangulate();
 
     // Output
@@ -88,7 +110,6 @@ PackedVector2Array PolyUtil::triangulate_with_holes(PackedVector2Array outer, Ar
 }
 
 Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
-    std::cout << "Called straight skeleton" << std::endl;
     std::vector<Vec2> polyskel_outer;
     std::vector<std::vector<Vec2>> polyskel_holes;
     for (const Vector2& v : outer) {
@@ -102,11 +123,7 @@ Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
         }
     }
 
-    std::cout << "Running straight skeleton with " << polyskel_outer.size() << std::endl;
-
     auto result = skeletonize(polyskel_outer, polyskel_holes);
-
-    std::cout << "Finished straight skeleton" << std::endl;
 
     Array out;
 

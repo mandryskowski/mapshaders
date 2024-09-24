@@ -47,3 +47,31 @@ Vector2 GeoMap::geo_to_world(GeoCoords coords) {
 	GeoCoords relative_coords(coords.lon - geo_origin.lon, geo_origin.lat - coords.lat);
     return geocoords_to_flat_distance (relative_coords, geo_origin.lat);
 }
+
+void GeoMap::_bind_methods()
+{
+    ClassDB::bind_method(D_METHOD("set_geo_origin_longitude_degrees", "degrees"), &GeoMap::set_geo_origin_longitude_degrees);
+    ClassDB::bind_method(D_METHOD("get_geo_origin_longitude_degrees"), &GeoMap::get_geo_origin_longitude_degrees);
+
+    ClassDB::bind_method(D_METHOD("set_geo_origin_latitude_degrees", "degrees"), &GeoMap::set_geo_origin_latitude_degrees);
+    ClassDB::bind_method(D_METHOD("get_geo_origin_latitude_degrees"), &GeoMap::get_geo_origin_latitude_degrees);
+
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "geo_origin_longitude_degrees"), "set_geo_origin_longitude_degrees", "get_geo_origin_longitude_degrees");
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "geo_origin_latitude_degrees"), "set_geo_origin_latitude_degrees", "get_geo_origin_latitude_degrees");
+}
+
+/*
+godot::Vector3 SphereGeoMap::geo_to_world(GeoCoords coords)
+{
+    // Geographical coordinates to position on a sphere
+
+    const double EARTH_RADIUS_METERS = 6371000.0;
+
+    // Calculate 3D coordinates on the sphere
+    double x = EARTH_RADIUS_METERS * std::cos(coords.lat.get_radians()) * std::cos(coords.lon.get_radians());
+    double y = EARTH_RADIUS_METERS * sin(coords.lat.get_radians());  // Y is the vertical axis
+    double z = EARTH_RADIUS_METERS * cos(coords.lat.get_radians()) * sin(coords.lon.get_radians());
+
+    return godot::Vector3(x, y, z);
+}
+*/

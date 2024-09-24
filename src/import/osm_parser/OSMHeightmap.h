@@ -2,10 +2,9 @@
 #ifndef OSM_HEIGHTMAP_H
 #define OSM_HEIGHTMAP_H
 #include "../GeoMap.h"
+#include "../elevation/ElevationParser.h"
 #include <godot_cpp/classes/ref.hpp>
 #include <memory>
-
-class ElevationGrid;
 
 class OSMHeightmap : public godot::RefCounted {
     GDCLASS(OSMHeightmap, godot::RefCounted);

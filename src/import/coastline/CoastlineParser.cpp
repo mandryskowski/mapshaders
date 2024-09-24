@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/node.hpp>
 
 #pragma pack(push, 1) // Ensures that the structs are packed with no padding
+const double R = 6378137.0; // Earth radius in meters for Mercator
 
 using namespace godot;
 
@@ -36,13 +37,59 @@ bool intersects(double xMin1, double yMin1, double xMax1, double yMax1,
     return !(xMax1 < xMin2 || xMin1 > xMax2 || yMax1 < yMin2 || yMin1 > yMax2);
 }
 
-Array readShapefile(const std::string& shpFileName, const std::string& shxFileName, godot::Ref<GeoMap> geomap,
+std::pair<double, double> readShapefilePoint(std::ifstream& shpFile, const ShapefileFormat format) {
+    double x, y;
+
+    shpFile.read(reinterpret_cast<char*>(&x), sizeof(double));
+    shpFile.read(reinterpret_cast<char*>(&y), sizeof(double));
+
+    double longitude, latitude;
+    switch (format) {
+        case ShapefileFormat::WGS84:
+            longitude = x;
+            latitude = y;
+            break;
+        case ShapefileFormat::MERCATOR:
+            // Convert Mercator coordinates (X, Y) to WGS84 (Longitude, Latitude)
+            longitude = (x / R) * (180.0 / Math_PI); // Convert to degrees
+            latitude = (std::atan(std::sinh(y / R))) * (180.0 / Math_PI); // Convert to degrees
+            break;
+    }
+
+    return {longitude, latitude};
+}
+
+ShapefileFormat getShapefileFormat(const godot::String& prjFileName) {
+    std::ifstream prjFile(prjFileName.ascii());
+    if (!prjFile) {
+        WARN_PRINT("Unable to open .prj file.");
+        return ShapefileFormat::UNKNOWN;
+    }
+
+    std::string line;
+    while (std::getline(prjFile, line)) {
+        if (line.find("WGS 84") != std::string::npos) {
+            return ShapefileFormat::WGS84;
+        } else if (line.find("Mercator") != std::string::npos) {
+            return ShapefileFormat::MERCATOR;
+        }
+    }
+
+    return ShapefileFormat::UNKNOWN;
+}
+
+Array readShapefile(const std::string& shpFileName, const std::string& shxFileName, ShapefileFormat format, godot::Ref<GeoMap> geomap,
                    double queryXMin, double queryYMin, double queryXMax, double queryYMax) {
+    if (!geomap.is_valid()) {
+        WARN_PRINT("GeoMap is null.");
+        return Array();
+    }
+
     std::ifstream shpFile(shpFileName, std::ios::binary);
     std::ifstream shxFile(shxFileName, std::ios::binary);
     godot::Array polygons;
     if (!shpFile || !shxFile) {
-        std::cerr << "Unable to open files." << std::endl;
+        WARN_PRINT("Unable to open coastline shapefiles.");
         return polygons;
     }
 
@@ -74,20 +121,17 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
         shpFile.read(reinterpret_cast<char*>(&shapeType), sizeof(shapeType));
 
         if (shapeType == 1) { // Point
-            double x, y;
-            shpFile.read(reinterpret_cast<char*>(&x), sizeof(double));
-            shpFile.read(reinterpret_cast<char*>(&y), sizeof(double));
+            auto [x, y] = readShapefilePoint(shpFile, format);
 
             if (x >= queryXMin && x <= queryXMax && y >= queryYMin && y <= queryYMax) {
                 std::cout << "Point Record #" << recordHeader.recordNumber 
                           << ": (" << x << ", " << y << ")" << std::endl;
             }
         } else if (shapeType == 5) { // Polygon (for example)
-            double shapeXMin, shapeYMin, shapeXMax, shapeYMax;
-            shpFile.read(reinterpret_cast<char*>(&shapeXMin), sizeof(double));
-            shpFile.read(reinterpret_cast<char*>(&shapeYMin), sizeof(double));
-            shpFile.read(reinterpret_cast<char*>(&shapeXMax), sizeof(double));
-            shpFile.read(reinterpret_cast<char*>(&shapeYMax), sizeof(double));
+            auto [shapeXMin, shapeYMin] = readShapefilePoint(shpFile, format);
+            auto [shapeXMax, shapeYMax] = readShapefilePoint(shpFile, format);
+            
+            std::cout << "Shape bounds: (" << shapeXMin << ", " << shapeYMin << ") - (" << shapeXMax << ", " << shapeYMax << ")" << std::endl;
 
             if (intersects(queryXMin, queryYMin, queryXMax, queryYMax, 
                            shapeXMin, shapeYMin, shapeXMax, shapeYMax)) {
@@ -107,9 +151,7 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
                 // Read points array
                 std::vector<std::pair<double, double>> points(numPoints);
                 for (int i = 0; i < numPoints; ++i) {
-                    double x, y;
-                    shpFile.read(reinterpret_cast<char*>(&x), sizeof(double));
-                    shpFile.read(reinterpret_cast<char*>(&y), sizeof(double));
+                    auto [x, y] = readShapefilePoint(shpFile, format);
                     points[i] = {x, y};
                 }
 
@@ -146,9 +188,15 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
     return polygons;
 }
 
-void CoastlineParser::import(const godot::String& shpFilename, const godot::String& shxFilename, godot::Ref<GeoMap> geomap) {
+void CoastlineParser::import(const godot::String &filenameWithoutExtension, godot::Ref<GeoMap> geomap, double xd) {
+    import(filenameWithoutExtension + godot::String(".shp"), filenameWithoutExtension + godot::String(".shx"), filenameWithoutExtension + godot::String(".prj"), geomap, xd);
+}
+
+void CoastlineParser::import(const godot::String &shpFilename, const godot::String &shxFilename, const godot::String &prjFilename, godot::Ref<GeoMap> geomap, double xd)
+{
     //auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 105, -8, 108, -5); indo cypel
-    auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 0.19, 50.6, 0.21, 51);
+    //auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 0.19, 50.6, 0.21, 51);
+    auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), getShapefileFormat(prjFilename), geomap, -xd, -xd, xd, xd);
 
     auto shader_nodes = this->get_shader_nodes();
     WARN_PRINT("Imported " + String::num_int64(polygons.size()) + " polygons.");

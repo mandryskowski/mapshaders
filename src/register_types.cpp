@@ -19,6 +19,8 @@ void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
 		return;
 
 	ClassDB::register_class<SGImport>();
+	ClassDB::register_class<GeoMap>();
+	ClassDB::register_class<SphereGeoMap>();
 	ClassDB::register_class<ElevationGrid>();
 	ClassDB::register_class<SkeletonSubtree>();
 	ClassDB::register_class<PolyUtil>();

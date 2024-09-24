@@ -3,6 +3,7 @@
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/classes/resource.hpp>
 
 /*
        LATITUDE
@@ -128,13 +129,14 @@ struct GeoCoords {
     }
 };
 
-class GeoMap : public godot::RefCounted {
-    GDCLASS(GeoMap, godot::RefCounted);
+class GeoMap : public godot::Resource {
+    GDCLASS(GeoMap, godot::Resource);
     // 1 unit is 1 metre.
     #define UNIT_IN_METRES 1.0
     // 1 degree of latitude is 111.139 km.
     #define LATITUDE_DEGREE_IN_METRES 111139.0
 public:
+    GeoMap(): geo_origin(GeoCoords()), grid_element_size(godot::Vector2(1000.0, 1000.0)), grid_negative_corner(godot::Vector2(0.0, 0.0)) {}
     /* Uses bounds in Earth space to calculate the Earth space origin and
        grid space negative corner.*/
     GeoMap (const GeoCoords& min_bounds, const GeoCoords& max_bounds, const godot::Vector2& grid_element_size = godot::Vector2 (1000.0, 1000.0));
@@ -146,7 +148,24 @@ public:
     unsigned int grid_index (godot::Vector2 world_space);
 
     /* Converts Earth space coordinates into World space. */
-    godot::Vector2 geo_to_world (GeoCoords);
+    virtual godot::Vector2 geo_to_world (GeoCoords);
+
+protected:
+    static void _bind_methods();
+public:
+    void set_geo_origin_longitude_degrees(double degrees) {
+        geo_origin.lon = Longitude::degrees(degrees);
+    }
+    double get_geo_origin_longitude_degrees() const {
+        return geo_origin.lon.get_degrees();
+    }
+
+    void set_geo_origin_latitude_degrees(double degrees) {
+        geo_origin.lat = Latitude::degrees(degrees);
+    }
+    double get_geo_origin_latitude_degrees() const {
+        return geo_origin.lat.get_degrees();
+    }
     
 private:
     /* Converts World space coordinates into Grid space. */
@@ -164,6 +183,17 @@ private:
     /*  Most negative corner in Grid space. E.g. a 3x3 grid has a 
         negative corner of (-1.5, -1.5). */
     godot::Vector2 grid_negative_corner;
+};
+
+class SphereGeoMap : public GeoMap {
+    GDCLASS(SphereGeoMap, GeoMap);
+
+public:
+    /* Converts Earth space coordinates into World space. */
+    virtual godot::Vector2 geo_to_world (GeoCoords) override;
+
+protected:
+    static void _bind_methods() {}
 };
 
 #endif // GEOMAP_H

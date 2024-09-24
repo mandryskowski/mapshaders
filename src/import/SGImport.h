@@ -54,6 +54,20 @@ class SGImport : public godot::Node
         return shader_nodes_coastline;
     }
 
+    void set_geo_map(godot::Ref<GeoMap> _geomap) {
+        this->geomap = _geomap;
+    }
+    godot::Ref<GeoMap> get_geo_map() {
+        return geomap;
+    }
+
+    void set_coastline_tile_size(double _coastline_tile_size) {
+        this->coastline_tile_size = _coastline_tile_size;
+    }
+    double get_coastline_tile_size() {
+        return coastline_tile_size;
+    }
+
     
     void import_osm(bool);
     void import_elevation(bool);
@@ -78,6 +92,7 @@ private:
     godot::Array node_path_array_to_node_array(godot::Array node_path_array);
 
     double longitude;
+    double coastline_tile_size;
 
     godot::String filename;
     godot::String elevation_filename;
