@@ -18,15 +18,17 @@ Vector2 geocoords_to_flat_distance(GeoCoords coords, Latitude avg_latitude) {
 GeoMap::GeoMap(const GeoCoords &min_bounds, const GeoCoords &max_bounds, const Vector2 &grid_element_size):
     geo_origin ((max_bounds + min_bounds) * 0.5),
     grid_negative_corner (Vector2(0.0, 0.0)),
-    grid_element_size (grid_element_size) {
-    grid_negative_corner = world_to_grid (geo_to_world (min_bounds));
+    grid_element_size (grid_element_size),
+    scale_factor(1.0) {
+    grid_negative_corner = Vector2(0,0);//world_to_grid (geo_to_world (min_bounds));
 }
 
 GeoMap::GeoMap(const GeoCoords &min_bounds, const GeoCoords &max_bounds, int64_t grid_size):
     geo_origin ((max_bounds + min_bounds) * 0.5),
     grid_negative_corner (Vector2(0.0, 0.0)),
-    grid_element_size (geocoords_to_flat_distance (max_bounds - min_bounds, (max_bounds.lat + min_bounds.lat) * 0.5) * (1.0 / static_cast<double>(grid_size))) {
-    grid_negative_corner = world_to_grid (geo_to_world (min_bounds) * Vector2(1.0, -1.0)); // Y coordinate is flipped due to Godot's righthandedness
+    grid_element_size (geocoords_to_flat_distance (max_bounds - min_bounds, (max_bounds.lat + min_bounds.lat) * 0.5) * (1.0 / static_cast<double>(grid_size))),
+    scale_factor(1.0) {
+    //grid_negative_corner = world_to_grid (geo_to_world (min_bounds) * Vector2(1.0, -1.0)); // Y coordinate is flipped due to Godot's righthandedness
     WARN_PRINT("Grid element size: " + String::num_real(grid_element_size.x) + " " + String::num_real(grid_element_size.y));
     WARN_PRINT("Grid negative corner: " + String::num_real(grid_negative_corner.x) + " " + String::num_real(grid_negative_corner.y));
     WARN_PRINT("Grid min bounds in geo space: " + String::num_real(min_bounds.lon.get_degrees()) + " " + String::num_real(min_bounds.lat.get_degrees()));
@@ -42,10 +44,12 @@ unsigned int GeoMap::grid_index (Vector2 world_space) {
     return static_cast<unsigned int>(MAX(floor(relative_to_corner.y - CMP_EPSILON), 0.0) * round(grid_size().x)) + static_cast<unsigned int>(MAX(floor(relative_to_corner.x - CMP_EPSILON), 0.0));
 }
 
-Vector2 GeoMap::geo_to_world(GeoCoords coords) {
+Vector3 GeoMap::geo_to_world(GeoCoords coords) {
     // Note: the Y axis is flipped due to godot's righthandedness
 	GeoCoords relative_coords(coords.lon - geo_origin.lon, geo_origin.lat - coords.lat);
-    return geocoords_to_flat_distance (relative_coords, geo_origin.lat);
+    Vector2 world_coords = geocoords_to_flat_distance (relative_coords, geo_origin.lat);
+
+    return Vector3(world_coords.x, 0.0, world_coords.y) * this->scale_factor;
 }
 
 void GeoMap::_bind_methods()
@@ -56,22 +60,34 @@ void GeoMap::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_geo_origin_latitude_degrees", "degrees"), &GeoMap::set_geo_origin_latitude_degrees);
     ClassDB::bind_method(D_METHOD("get_geo_origin_latitude_degrees"), &GeoMap::get_geo_origin_latitude_degrees);
 
+    ClassDB::bind_method(D_METHOD("set_scale_factor", "scale"), &GeoMap::set_scale_factor);
+    ClassDB::bind_method(D_METHOD("get_scale_factor"), &GeoMap::get_scale_factor);
+
+    ClassDB::bind_method(D_METHOD("geo_to_world", "coords"), (Vector3(GeoMap::*)(Vector2))(&GeoMap::geo_to_world));
+    
+    ClassDB::bind_method(D_METHOD("geo_to_world_up", "coords"), (Vector3(GeoMap::*)(Vector2))(&GeoMap::geo_to_world_up));
+
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "geo_origin_longitude_degrees"), "set_geo_origin_longitude_degrees", "get_geo_origin_longitude_degrees");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "geo_origin_latitude_degrees"), "set_geo_origin_latitude_degrees", "get_geo_origin_latitude_degrees");
+
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "scale"), "set_scale_factor", "get_scale_factor");
 }
 
-/*
-godot::Vector3 SphereGeoMap::geo_to_world(GeoCoords coords)
-{
+
+godot::Vector3 SphereGeoMap::geo_to_world(GeoCoords coords) {
     // Geographical coordinates to position on a sphere
 
     const double EARTH_RADIUS_METERS = 6371000.0;
 
     // Calculate 3D coordinates on the sphere
-    double x = EARTH_RADIUS_METERS * std::cos(coords.lat.get_radians()) * std::cos(coords.lon.get_radians());
-    double y = EARTH_RADIUS_METERS * sin(coords.lat.get_radians());  // Y is the vertical axis
-    double z = EARTH_RADIUS_METERS * cos(coords.lat.get_radians()) * sin(coords.lon.get_radians());
+    // Flip the longitude as otherwise it is "inside out"
+    double x = EARTH_RADIUS_METERS * std::cos(coords.lat.get_radians()) * std::cos(-coords.lon.get_radians());
+    double y = EARTH_RADIUS_METERS * std::sin(coords.lat.get_radians());  // Y is the vertical axis
+    double z = EARTH_RADIUS_METERS * std::cos(coords.lat.get_radians()) * std::sin(-coords.lon.get_radians());
 
-    return godot::Vector3(x, y, z);
+    return godot::Vector3(x, y, z) * this->get_scale_factor();
 }
-*/
+
+godot::Vector3 SphereGeoMap::geo_to_world_up(GeoCoords coords) {
+    return geo_to_world(coords).normalized();
+}

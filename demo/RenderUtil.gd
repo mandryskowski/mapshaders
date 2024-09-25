@@ -31,6 +31,24 @@ static func enforce_winding(verts):
 			winding_val += (next.x - this.x) * (next.z + this.z)
 		if winding_val > 0.0:
 			verts.reverse()
+			
+static func geo_polygon_to_world(verts_geo : PackedVector2Array, geomap : GeoMap) -> PackedVector3Array:
+	var verts_world : PackedVector3Array
+	for vg in verts_geo:
+		verts_world.append(geomap.geo_to_world(vg))
+		
+	verts_world.reverse()
+		
+	return verts_world
+	
+static func geo_polygon_to_world_up(verts_geo : PackedVector2Array, geomap : GeoMap) -> PackedVector3Array:
+	var up_world : PackedVector3Array
+	for vg in verts_geo:
+		up_world.append(geomap.geo_to_world_up(vg))
+		
+	up_world.reverse()
+		
+	return up_world
 
 static func polygon(verts : PackedVector3Array, height : float = 0.0) -> Array:
 		var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TEX_UV])
@@ -50,12 +68,14 @@ static func polygon(verts : PackedVector3Array, height : float = 0.0) -> Array:
 		
 		return arrays
 
-static func polygon_triangles(triangles : PackedVector2Array, height = 0.0):
+static func polygon_triangles(triangles : PackedVector3Array, height = 0.0, normals = null):
 	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_TEX_UV, Mesh.ARRAY_NORMAL])
-	for v in triangles:
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v.x, height, v.y))
-		arrays[Mesh.ARRAY_TEX_UV].append(Vector2(v.x, v.y))
-		arrays[Mesh.ARRAY_NORMAL].append(Vector3(0, 1, 0))
+	for i in range(triangles.size()):
+		var v = triangles[i]
+		arrays[Mesh.ARRAY_VERTEX].append(v + Vector3(0, height, 0))
+		arrays[Mesh.ARRAY_TEX_UV].append(Vector2(v.x, v.z))
+
+		arrays[Mesh.ARRAY_NORMAL].append(normals[i] if normals else Vector3(0, 1, 0))
 		
 	return arrays
 		

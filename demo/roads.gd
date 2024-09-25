@@ -10,7 +10,7 @@ func import_begin():
 		self.remove_child(child)
 
 func import_node(osm_dict : Dictionary, fa : StreamPeer):
-	node_pos[osm_dict["id"]] = osm_dict["pos3d"]
+	node_pos[osm_dict["id"]] = osm_dict["pos_elevation"]
 	
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
 	

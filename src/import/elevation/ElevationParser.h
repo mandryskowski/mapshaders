@@ -24,10 +24,10 @@ public:
     void setHeightmap(godot::Array value);
     godot::Array getHeightmap() const;
 
-    __declspec(dllexport) godot::Vector2 getBottomLeftWorld() const;
-    __declspec(dllexport) godot::Vector2 getBottomRightWorld() const;
-    __declspec(dllexport) godot::Vector2 getTopLeftWorld() const;
-    __declspec(dllexport) godot::Vector2 getTopRightWorld() const;
+    __declspec(dllexport) godot::Vector3 getBottomLeftWorld() const;
+    __declspec(dllexport) godot::Vector3 getBottomRightWorld() const;
+    __declspec(dllexport) godot::Vector3 getTopLeftWorld() const;
+    __declspec(dllexport) godot::Vector3 getTopRightWorld() const;
 
     godot::Ref<GeoMap> get_geo_map() const {
         return geomap;

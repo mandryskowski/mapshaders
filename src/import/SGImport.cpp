@@ -13,6 +13,8 @@ void SGImport::import_osm(bool) {
     OSMParser parser(node_path_array_to_node_array(this->shader_nodes_osm));
 
     this->set_geo_map(parser.import(filename, this->geomap, this->heightmap)); 
+    WARN_PRINT("Geomap origin " + String::num_real(this->geomap->get_geo_origin_latitude_degrees()) + " " + String::num_real(this->geomap->get_geo_origin_longitude_degrees()));
+    WARN_PRINT("Example mapping " + String::num_real(this->geomap->geo_to_world(GeoCoords(Longitude::degrees(15.0), Latitude::degrees(10.0))).x) + " " + String::num_real(this->geomap->geo_to_world(GeoCoords(Longitude::degrees(15.0), Latitude::degrees(10.0))).y));
 }
 
 void SGImport::import_elevation(bool) {

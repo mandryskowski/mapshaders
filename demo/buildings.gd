@@ -21,7 +21,7 @@ func import_begin():
 	building_part_nodes = {}
 
 func import_node(osm_dict : Dictionary, fa : StreamPeer):
-	node_pos[osm_dict["id"]] = osm_dict["pos3d"]
+	node_pos[osm_dict["id"]] = osm_dict["pos_elevation"]
 	
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
 	if osm_dict.get("building:part", "no") != "no":

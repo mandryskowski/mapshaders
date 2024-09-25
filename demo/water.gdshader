@@ -78,6 +78,17 @@ vec4 wave(vec4 parameter, vec2 position, float time, inout vec3 tangent, inout v
 	return vec4(d.x * (a * cos(f)), a * sin(f) * 0.25, d.y * (a * cos(f)), 0.0);
 }
 
+vec2 spherical_uv(vec3 vertex_position)
+{
+    // Normalize the vertex position to get the direction from the center of the sphere
+    vec3 normalized_pos = normalize(vertex_position);
+
+    // Compute spherical coordinates
+    float u = atan(normalized_pos.z, normalized_pos.x) / (2.0 * 3.14159265359) + 0.5; // Longitude mapped to [0, 1]
+    float v = acos(normalized_pos.y) / 3.14159265359 + 0.5; // Latitude mapped to [0, 1]
+
+    return vec2(u, v) * length(vertex_position);
+}
 
 // Vertex shader:
 void vertex()
@@ -86,6 +97,7 @@ void vertex()
 	
 	vec4	vertex			 = vec4(VERTEX, 1.0);
 	vec3	vertex_position  = (MODEL_MATRIX * vertex).xyz;
+	vec3    vertex_input_normal = vertex_normal;
 	
 	vec3 tang = vec3(0.0, 0.0, 0.0);
 	vec3 bin = vec3(0.0, 0.0, 0.0);
@@ -106,7 +118,14 @@ void vertex()
 	vertex_normal	 = normalize(cross(vertex_binormal, vertex_tangent));
 	//NORMAL			 = vertex_normal;
 
-	UV				 = vertex.xz * sampler_scale;
+	
+	// Try to detect if the water is being rendered on a flat map or on a spherical map.
+	if (dot(vertex_input_normal, vec3(0.0, 1.0, 0.0)) > 0.999) {
+		UV = vertex.xz * sampler_scale;
+	}
+	else {
+		UV = spherical_uv(vertex.xyz) * sampler_scale;
+	}
 
 	//VERTEX			 = vertex.xyz;
 	

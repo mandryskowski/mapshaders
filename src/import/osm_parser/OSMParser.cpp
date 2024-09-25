@@ -207,28 +207,18 @@ void OSMParser::parse_bounds(ParserInfo & pi) {
             //fa->open_resizable (2);
         }
     }
-
-    printf ("bounds neg %.6f %.6f \n", pi.geomap->geo_to_world (    GeoCoords(
-    Longitude::degrees(pi.parser.get_named_attribute_value("minlon").to_float()),
-    Latitude::degrees(pi.parser.get_named_attribute_value("minlat").to_float()))).x,    pi.geomap->geo_to_world(GeoCoords(
-    Longitude::degrees(pi.parser.get_named_attribute_value("minlon").to_float()),
-    Latitude::degrees(pi.parser.get_named_attribute_value("minlat").to_float()))).y);
-
-        printf ("bounds pos %.6f %.6f \n", pi.geomap->geo_to_world (    GeoCoords(
-    Longitude::degrees(pi.parser.get_named_attribute_value("maxlon").to_float()),
-    Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float()))).x,    pi.geomap->geo_to_world(GeoCoords(
-    Longitude::degrees(pi.parser.get_named_attribute_value("maxlon").to_float()),
-    Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float()))).y);
 }
 
 void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
     GeoCoords coords(Longitude::degrees(pi.parser.get_named_attribute_value("lon").to_float()),
                      Latitude::degrees(pi.parser.get_named_attribute_value("lat").to_float()));
-    Vector2 pos = pi.geomap->geo_to_world(coords);
+    Vector3 pos = pi.geomap->geo_to_world(coords);
+    Vector3 up = pi.geomap->geo_to_world_up(coords);
 
     d["pos"] = pos;
-
-    d["pos3d"] = pi.heightmap.is_valid() ? Vector3(pos.x, pi.heightmap->getElevation(coords), pos.y) : Vector3(pos.x, 0.0, pos.y);
+    d["pos_geo"] = coords.to_vector2_representation();
+    d["up"] = up;
+    d["pos_elevation"] = pi.heightmap.is_valid() ? pos + up * pi.heightmap->getElevation(coords) : pos;
 }
 
 unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo& pi, Dictionary& element) {

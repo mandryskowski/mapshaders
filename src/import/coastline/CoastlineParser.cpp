@@ -78,12 +78,8 @@ ShapefileFormat getShapefileFormat(const godot::String& prjFileName) {
     return ShapefileFormat::UNKNOWN;
 }
 
-Array readShapefile(const std::string& shpFileName, const std::string& shxFileName, ShapefileFormat format, godot::Ref<GeoMap> geomap,
+Array readShapefile(const std::string& shpFileName, const std::string& shxFileName, ShapefileFormat format,
                    double queryXMin, double queryYMin, double queryXMax, double queryYMax) {
-    if (!geomap.is_valid()) {
-        WARN_PRINT("GeoMap is null.");
-        return Array();
-    }
 
     std::ifstream shpFile(shpFileName, std::ios::binary);
     std::ifstream shxFile(shxFileName, std::ios::binary);
@@ -130,13 +126,11 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
         } else if (shapeType == 5) { // Polygon (for example)
             auto [shapeXMin, shapeYMin] = readShapefilePoint(shpFile, format);
             auto [shapeXMax, shapeYMax] = readShapefilePoint(shpFile, format);
-            
-            std::cout << "Shape bounds: (" << shapeXMin << ", " << shapeYMin << ") - (" << shapeXMax << ", " << shapeYMax << ")" << std::endl;
 
             if (intersects(queryXMin, queryYMin, queryXMax, queryYMax, 
                            shapeXMin, shapeYMin, shapeXMax, shapeYMax)) {
-                std::cout << "Polygon Record #" << recordHeader.recordNumber 
-                          << " intersects with query box." << std::endl;
+                //std::cout << "Polygon Record #" << recordHeader.recordNumber 
+                //          << " intersects with query box." << std::endl;
                 // Read the full polygon data if needed
 		
                 // Number of parts and points
@@ -157,19 +151,19 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
 
                 // Output the polygon data
 
-                std::cout << "Polygon Record #" << recordHeader.recordNumber << " has " 
-                        << numParts << " parts and " << numPoints << " points." << std::endl;
+                //std::cout << "Polygon Record #" << recordHeader.recordNumber << " has " 
+                //        << numParts << " parts and " << numPoints << " points." << std::endl;
 
                 Array polygon;
     
                 for (int i = 0; i < numParts; ++i) {
                     int start = parts[i];
                     int end = (i == numParts - 1) ? numPoints : parts[i + 1];
-                    std::cout << "  Part " << i + 1 << ":\n";
+                    //std::cout << "  Part " << i + 1 << ":\n";
 
-                    Array part;
+                    PackedVector2Array part;
                     for (int j = start; j < end; ++j) {
-                        part.append(geomap->geo_to_world(GeoCoords(Longitude::degrees(points[j].first), Latitude::degrees(points[j].second))));
+                        part.append(GeoCoords(Longitude::degrees(points[j].first), Latitude::degrees(points[j].second)).to_vector2_representation());
                     }
 
                     polygon.append(part);
@@ -196,12 +190,51 @@ void CoastlineParser::import(const godot::String &shpFilename, const godot::Stri
 {
     //auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 105, -8, 108, -5); indo cypel
     //auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 0.19, 50.6, 0.21, 51);
-    auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), getShapefileFormat(prjFilename), geomap, -xd, -xd, xd, xd);
-
-    auto shader_nodes = this->get_shader_nodes();
-    WARN_PRINT("Imported " + String::num_int64(polygons.size()) + " polygons.");
+    const auto polygons_geo = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), getShapefileFormat(prjFilename), -xd, -xd, xd, xd);
+    const auto shader_nodes = this->get_shader_nodes();
+    
+    WARN_PRINT("Imported " + String::num_int64(polygons_geo.size()) + " polygons.");
     WARN_PRINT("Shader nodes size: " + String::num_int64(shader_nodes.size()));
-    for (int i = 0; i < shader_nodes.size(); i++) {
-        Object::cast_to<Node>(shader_nodes[i])->call("import_polygons", polygons);
+
+    for (int i = 0; i < shader_nodes.size(); i++)
+        Object::cast_to<Node>(shader_nodes[i])->call("import_polygons_geo", polygons_geo, geomap);
+
+    // Check if we need to map points to world space
+    bool is_need_for_world = false;
+    {
+        for (int i = 0; i < shader_nodes.size(); i++) {
+            if (Object::cast_to<Node>(shader_nodes[i])->has_method("import_polygons_world")) {
+                is_need_for_world = true;
+                break;
+            }
+        }
+    }
+
+    if (is_need_for_world) {
+        if (!geomap.is_valid()) {
+            ERR_PRINT("GeoMap is null but Coastline shader uses world space.");
+            return;
+        }
+
+        Array polygons_world;
+        for (int i = 0; i < polygons_geo.size(); i++) {
+            Array polygon = polygons_geo[i];
+            Array polygon_world;
+
+            for (int j = 0; j < polygon.size(); j++) {
+                PackedVector2Array part = polygon[j];
+                PackedVector3Array part_world;
+                for (int k = 0; k < part.size(); k++) {
+                    const Vector2 point = part[k];
+                    part_world.append(geomap->geo_to_world(GeoCoords::from_vector2_representation(point)));
+                }
+
+                polygon_world.append(part_world);
+            }
+            polygons_world.append(polygon_world);
+        }
+
+        for (int i = 0; i < shader_nodes.size(); i++)
+            Object::cast_to<Node>(shader_nodes[i])->call("import_polygons_world", polygons_world);
     }
 }

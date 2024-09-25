@@ -28,37 +28,37 @@ double ElevationGrid::getNodataValue() const { return nodata_value; }
 void ElevationGrid::setHeightmap(godot::Array value) { heightmap = value; }
 godot::Array ElevationGrid::getHeightmap() const { return heightmap; }
 
-godot::Vector2 ElevationGrid::getBottomLeftWorld() const {
+godot::Vector3 ElevationGrid::getBottomLeftWorld() const {
     if (this->geomap == nullptr) {
         ERR_PRINT("GeoMap is not set");
-        return godot::Vector2();
+        return godot::Vector3();
     }
 
     return this->geomap->geo_to_world(getTopLeftGeo() - GeoCoords(Longitude::zero(), Latitude::degrees(getCellsize() * getNrows())));
 }
 
-godot::Vector2 ElevationGrid::getBottomRightWorld() const {
+godot::Vector3 ElevationGrid::getBottomRightWorld() const {
     if (this->geomap == nullptr) {
         ERR_PRINT("GeoMap is not set");
-        return godot::Vector2();
+        return godot::Vector3();
     }
 
     return this->geomap->geo_to_world(getTopLeftGeo() + GeoCoords(Longitude::degrees(getCellsize() * getNcols()), Latitude::degrees(-getCellsize() * getNrows())));
 }
 
-__declspec(dllexport) godot::Vector2 ElevationGrid::getTopLeftWorld() const {
+__declspec(dllexport) godot::Vector3 ElevationGrid::getTopLeftWorld() const {
     if (this->geomap == nullptr) {
         ERR_PRINT("GeoMap is not set");
-        return godot::Vector2();
+        return godot::Vector3();
     }
 
     return this->geomap->geo_to_world(getTopLeftGeo());
 }
 
-godot::Vector2 ElevationGrid::getTopRightWorld() const {
+godot::Vector3 ElevationGrid::getTopRightWorld() const {
     if (this->geomap == nullptr) {
         ERR_PRINT("GeoMap is not set");
-        return godot::Vector2();
+        return godot::Vector3();
     }
 
     return this->geomap->geo_to_world(getTopLeftGeo() + GeoCoords(Longitude::degrees(getCellsize() * getNcols()), Latitude::zero()));
