@@ -9,7 +9,8 @@ enum RoofType
 	FLAT,
 	PYRAMIDAL,
 	SKILLION,
-	HIPPED
+	HIPPED,
+	GABLED
 }
 
 func get_required_globals():
@@ -24,6 +25,8 @@ func import_node(osm_dict : Dictionary, fa : StreamPeer):
 	node_pos[osm_dict["id"]] = osm_dict["pos_elevation"]
 	
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
+	#if osm_dict["id"] != 975494520:
+	#	return
 	if osm_dict.get("building:part", "no") != "no":
 		# mark its nodes as building parts
 		#for node_id in osm_dict["nodes"]:
@@ -66,6 +69,8 @@ func get_roof_arrays(d : Dictionary):
 			return RenderUtil.skillion(nodes, d.get("roof_height", max_height - min_height), max_height, d["roof_dir"])
 		RoofType.HIPPED:
 			return RenderUtil.hipped(nodes, d.get("roof_height", max_height - min_height), max_height)
+		RoofType.GABLED:
+			return RenderUtil.hipped(nodes, d.get("roof_height", max_height - min_height), max_height, true)
 
 func load_tile(fa : FileAccess):
 	var paths = fa.get_var()

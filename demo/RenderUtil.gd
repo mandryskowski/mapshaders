@@ -20,7 +20,7 @@ static func get_middle_of_polygon(verts : PackedVector3Array):
 			
 		return mid / verts.size()
 			
-static func enforce_winding(verts):
+static func enforce_winding(verts, clockwise = true):
 		#if normal.dot((verts[1] - verts[0]).cross(verts[2] - verts[0])) > 0.0:
 		#	verts.reverse()
 		var mid = get_middle_of_polygon(verts)
@@ -29,7 +29,7 @@ static func enforce_winding(verts):
 			var this = verts[v] - mid
 			var next = verts[(v + 1) % verts.size()] - mid
 			winding_val += (next.x - this.x) * (next.z + this.z)
-		if winding_val > 0.0:
+		if (clockwise and winding_val > 0.0) or (not clockwise and winding_val < 0.0):
 			verts.reverse()
 			
 static func geo_polygon_to_world(verts_geo : PackedVector2Array, geomap : GeoMap) -> PackedVector3Array:
@@ -134,25 +134,59 @@ static func skillion(verts : PackedVector3Array, height : float = 0.0, min_heigh
 	
 	return arrays
 	
-static func hipped(verts : PackedVector3Array, height : float = 0.0, min_height :float = 0.0) -> Array:
+static func turn_hipped_skeleton_into_gabled(subtrees):
+	var subtree_map = {}
+	for subtree in subtrees:
+		subtree_map[subtree.source] = subtree
+		
+	var subtree_neighbors : Dictionary
+	for subtree in subtrees:
+		subtree_neighbors[subtree.source] = []
+	
+	for subtree in subtrees:
+		for sink in subtree.sinks:
+			if sink in subtree_neighbors:
+				subtree_neighbors[sink].append(subtree)
+				subtree_neighbors[subtree.source].append(subtree_map[sink])
+				
+	var ends : PackedVector2Array
+	for subtree in subtrees:
+		var this_neighbors = subtree_neighbors.get(subtree.source, [])
+		if len(this_neighbors) == 1:
+			var old_source = subtree.source
+			subtree.source = Vector2.ZERO
+			var corners = 0
+			for sink in subtree.sinks:
+				if sink not in subtree_neighbors: # if sink not a subtree
+					subtree.source += sink
+					corners += 1
+			
+			subtree.source /= corners
+			subtree_map.erase(old_source)
+			subtree_map[subtree.source] = subtree
+			
+			if this_neighbors[0].sinks.find(old_source) != -1:
+				this_neighbors[0].sinks[this_neighbors[0].sinks.find(old_source)] = subtree.source
+	
+	
+static func hipped(verts : PackedVector3Array, height : float = 0.0, min_height :float = 0.0, gabled = false) -> Array:
 	if verts.is_empty():
 		return []
+		
+	enforce_winding(verts, false)
 		
 	var nodes_2d = PackedVector2Array()
 	for v in verts:
 		nodes_2d.push_back(Vector2(v.x, v.z))
 	
 	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TEX_UV])
-	nodes_2d = [Vector2(40, 40),
-Vector2(40, 310),
-Vector2(520, 310),
-Vector2(520, 40)
-]
+
 	var subtrees = PolyUtil.new().straight_skeleton(nodes_2d, [])
-	subtrees[0].source = Vector2(40, 175)
-	subtrees[1].source = Vector2(520, 175)
 	
-	subtrees[1].sinks[0] = subtrees[0].source
+	# Turn into gabled if necessary
+	if gabled:
+		turn_hipped_skeleton_into_gabled(subtrees)
+	
 	# BFS
 	var subtree_map = {}
 	for subtree in subtrees:
@@ -203,7 +237,6 @@ Vector2(520, 40)
 		poly.append(v2)
 		
 		var triangulated = Geometry2D.triangulate_polygon(poly)
-		print("triangulated is",  triangulated)
 		
 		for tri in range(0, len(triangulated), 3):
 			var vs = []
@@ -289,7 +322,8 @@ enum RoofType
 	FLAT,
 	PYRAMIDAL,
 	SKILLION,
-	HIPPED
+	HIPPED,
+	GABLED
 }
 
 static func get_roof_type(code : String):
@@ -297,6 +331,7 @@ static func get_roof_type(code : String):
 		"pyramidal": return RoofType.PYRAMIDAL
 		"skillion": return RoofType.SKILLION
 		"hipped": return RoofType.HIPPED
+		"gabled": return RoofType.GABLED
 		"flat", _: return RoofType.FLAT
 		
 static func osm_to_gd_color(code : String):
