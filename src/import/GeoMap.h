@@ -22,7 +22,7 @@ However, 1 degree of longitude is a different distance depending on the latitude
 */
 
 /* SPACES:
-    - Earth space: Our lovely planet represented by geographical coordinates.
+    - Earth space: Our planet represented by geographical coordinates.
     - World space: 3D Euclidean space of our Godot scene represented by Cartesian coordinates.
     - Grid space: Earth data is partitioned into a grid to allow loading just a part of it.
                     Represented by 2D Cartesian coordinates.
@@ -147,39 +147,51 @@ struct GeoCoords {
 
 class GeoMap : public godot::Resource {
     GDCLASS(GeoMap, godot::Resource);
-    // 1 unit is 1 metre.
-    #define UNIT_IN_METRES 1.0
-    // 1 degree of latitude is 111.139 km.
-    #define LATITUDE_DEGREE_IN_METRES 111139.0
 public:
-    GeoMap(): geo_origin(GeoCoords()), grid_element_size(godot::Vector2(1000.0, 1000.0)), grid_negative_corner(godot::Vector2(0.0, 0.0)), scale_factor(1.0) {}
-    /* Uses bounds in Earth space to calculate the Earth space origin and
-       grid space negative corner.*/
-    GeoMap (const GeoCoords& min_bounds, const GeoCoords& max_bounds, const godot::Vector2& grid_element_size = godot::Vector2 (1000.0, 1000.0));
-    /* Calculates the grid element size (e.g. 1000mx1000m) from grid size (e.g. 3x3 grid). */
-    GeoMap (const GeoCoords& min_bounds, const GeoCoords& max_bounds, int64_t grid_size);
-
-    /* Converts World space coordinates into the index of the corresponding
-       grid element which can be used for serialisation. */
-    unsigned int grid_index (godot::Vector2 world_space);
+    GeoMap() : scale_factor(1.0) {}
 
     /* Converts Earth space coordinates into World space. */
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world (GeoCoords);
+    __declspec(dllexport) godot::Vector3 geo_to_world (GeoCoords coords) {
+        return geo_to_world_impl(coords) * scale_factor;
+    }
     __declspec(dllexport) godot::Vector3 geo_to_world (godot::Vector2 vec) {
         return geo_to_world(GeoCoords::from_vector2_representation(vec));
     };
 
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) {
-        return godot::Vector3(0.0, 1.0, 0.0);
-    }
+    /* Converts Earth space coordinates into the UP vector. */
+    __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) = 0;
     __declspec(dllexport) godot::Vector3 geo_to_world_up (godot::Vector2 vec) {
         return geo_to_world_up(GeoCoords::from_vector2_representation(vec));
     };
+
+
+    /* Optional scale factor for your convenience if you're not using 1 unit = 1 m. */
+    void set_scale_factor(double scale_factor) {
+        this->scale_factor = scale_factor;
+    }
+    double get_scale_factor() const {
+        return scale_factor;
+    }
+
     virtual ~GeoMap() {}	
 
 protected:
+    virtual godot::Vector3 geo_to_world_impl (GeoCoords) = 0;
     static void _bind_methods();
+
+private:
+    /* Scale factor for World space. */
+    double scale_factor;
+};
+
+class OriginBasedGeoMap : public GeoMap {
+    GDCLASS(OriginBasedGeoMap, GeoMap);
 public:
+    OriginBasedGeoMap(): geo_origin(GeoCoords()) {}
+
+    /* Uses bounds in Earth space to calculate the Earth space origin.*/
+    OriginBasedGeoMap (const GeoCoords& min_bounds, const GeoCoords& max_bounds);
+
     void set_geo_origin_longitude_degrees(double degrees) {
         geo_origin.lon = Longitude::degrees(degrees);
     }
@@ -194,32 +206,33 @@ public:
         return geo_origin.lat.get_degrees();
     }
 
-    void set_scale_factor(double scale_factor) {
-        this->scale_factor = scale_factor;
-    }
-    double get_scale_factor() const {
-        return scale_factor;
-    }
+    virtual ~OriginBasedGeoMap() {}
     
-private:
-    /* Converts World space coordinates into Grid space. */
-    godot::Vector2 world_to_grid (godot::Vector2 world_space) const
-    {
-        return world_space / grid_element_size;
-    }
-    godot::Vector2 grid_size () const {
-        return grid_negative_corner.abs() * 2.0;
-    }
+protected:
+    static void _bind_methods();
+
     /* Geo coordinates of the place on Earth corresponding to (0, 0) in world space. */
     GeoCoords geo_origin;
-    /* Size of each grid element, in World space. */
-    const godot::Vector2 grid_element_size;
-    /*  Most negative corner in Grid space. E.g. a 3x3 grid has a 
-        negative corner of (-1.5, -1.5). */
-    godot::Vector2 grid_negative_corner;
+};
 
-    /* Scale factor for World space. */
-    double scale_factor;
+class EquirectangularGeoMap : public OriginBasedGeoMap {
+    GDCLASS(EquirectangularGeoMap, OriginBasedGeoMap);
+    // 1 unit is 1 metre.
+    #define UNIT_IN_METRES 1.0
+    // 1 degree of latitude is 111.139 km.
+    #define LATITUDE_DEGREE_IN_METRES 111139.0
+public:
+    using OriginBasedGeoMap::OriginBasedGeoMap;
+
+    __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) {
+        return godot::Vector3(0.0, 1.0, 0.0);
+    }
+
+    virtual ~EquirectangularGeoMap() {}	
+
+protected:
+    __declspec(dllexport) virtual godot::Vector3 geo_to_world_impl (GeoCoords) override;
+    static void _bind_methods();
 };
 
 class SphereGeoMap : public GeoMap {
@@ -227,13 +240,13 @@ class SphereGeoMap : public GeoMap {
 
 public:
     /* Converts Earth space coordinates into World space. */
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world (GeoCoords) override;
     __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) override;
 
     virtual ~SphereGeoMap() {}
 
 protected:
-    static void _bind_methods() {}
+    __declspec(dllexport) virtual godot::Vector3 geo_to_world_impl (GeoCoords) override;
+    static void _bind_methods();
 };
 
 #endif // GEOMAP_H

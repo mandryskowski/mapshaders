@@ -183,16 +183,14 @@ void OSMParser::parse_bounds(ParserInfo & pi) {
     auto shader_nodes = this->get_shader_nodes();
     
     if (pi.geomap.is_null()) {
-        pi.geomap = godot::Ref<GeoMap>(memnew(GeoMap(
+        pi.geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(
         GeoCoords(
         Longitude::degrees(pi.parser.get_named_attribute_value("minlon").to_float()),
         Latitude::degrees(pi.parser.get_named_attribute_value("minlat").to_float())),
         
         GeoCoords(
         Longitude::degrees(pi.parser.get_named_attribute_value("maxlon").to_float()),
-        Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float())),
-        
-        grid_size)));
+        Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float())))));
     }
 
     pi.tile_bytes.clear();
@@ -223,7 +221,7 @@ void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
 
 unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo& pi, Dictionary& element) {
     if (element_type == "node")
-        return pi.geomap->grid_index (element["pos"]);
+        return 0;//return pi.geomap->grid_index (element["pos"]);
     else if (element_type == "way") {
         const Array& nodes = static_cast<Array>(element["nodes"]);
         if (nodes.is_empty()) {

@@ -7,14 +7,10 @@
 using namespace godot;
 
 void SGImport::import_osm(bool) {
-
-    
     WARN_PRINT("Trying to import osm file" + filename);
     OSMParser parser(node_path_array_to_node_array(this->shader_nodes_osm));
 
     this->set_geo_map(parser.import(filename, this->geomap, this->heightmap)); 
-    WARN_PRINT("Geomap origin " + String::num_real(this->geomap->get_geo_origin_latitude_degrees()) + " " + String::num_real(this->geomap->get_geo_origin_longitude_degrees()));
-    WARN_PRINT("Example mapping " + String::num_real(this->geomap->geo_to_world(GeoCoords(Longitude::degrees(15.0), Latitude::degrees(10.0))).x) + " " + String::num_real(this->geomap->geo_to_world(GeoCoords(Longitude::degrees(15.0), Latitude::degrees(10.0))).y));
 }
 
 void SGImport::import_elevation(bool) {
@@ -27,7 +23,7 @@ void SGImport::import_elevation(bool) {
 }
 
 void SGImport::import_coastline(bool) {
-    WARN_PRINT("Trying to import coastline file. Geomap origin " + String::num_real(this->geomap->get_geo_origin_latitude_degrees()));
+    WARN_PRINT("Trying to import coastline file.");
     CoastlineParser parser(node_path_array_to_node_array(this->shader_nodes_coastline));
     parser.import("maps/water_polygons", this->geomap, this->coastline_tile_size);
 }
@@ -122,7 +118,7 @@ void SGImport::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "coastline_tile_size"), "set_coastline_tile_size", "get_coastline_tile_size");
     
     
-    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "geo_map", PROPERTY_HINT_RESOURCE_TYPE, "GeoMap,SphereGeoMap"), "set_geo_map", "get_geo_map");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "geo_map", PROPERTY_HINT_RESOURCE_TYPE, "EquirectangularGeoMap,SphereGeoMap"), "set_geo_map", "get_geo_map");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "load_all_tiles"), "load_tiles", "get_true");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "Reset geo information"), "reset_geo_info", "get_true");
     

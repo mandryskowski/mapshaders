@@ -264,8 +264,7 @@ void printGrid(const std::vector<std::vector<double>>& grid) {
 godot::Ref<ElevationGrid> ElevationParser::import(const godot::String& filename, godot::Ref<GeoMap> geomap) {
     auto grid = loadASCIIGrid(filename.ascii().ptr());
     if (geomap.is_null()) {
-        const int gridSize = 5;
-        geomap = godot::Ref<GeoMap>(memnew(GeoMap(grid->getTopLeftGeo() - GeoCoords(Longitude::zero(), Latitude::degrees(grid->getCellsize() * grid->getNrows())), grid->getTopLeftGeo() + GeoCoords(Longitude::degrees(grid->getCellsize() * grid->getNcols()), Latitude::zero()), gridSize)));
+        geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(grid->getTopLeftGeo() - GeoCoords(Longitude::zero(), Latitude::degrees(grid->getCellsize() * grid->getNrows())), grid->getTopLeftGeo() + GeoCoords(Longitude::degrees(grid->getCellsize() * grid->getNcols()), Latitude::zero()))));
     }
 
     grid->set_geo_map(geomap);
