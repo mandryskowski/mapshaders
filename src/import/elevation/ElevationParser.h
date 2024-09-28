@@ -2,6 +2,7 @@
 #define ELEVATION_PARSER_H
 #include "../GeoMap.h"
 #include "../Parser.h"
+#include <godot_cpp/variant/typed_array.hpp>
 
 class ElevationGrid : public godot::RefCounted {
     GDCLASS(ElevationGrid, godot::RefCounted);
@@ -21,7 +22,7 @@ public:
     void setNodataValue(double value);
     double getNodataValue() const;
 
-    void setHeightmap(godot::Array value);
+    void setHeightmap(const godot::Array& value);
     godot::Array getHeightmap() const;
 
     __declspec(dllexport) godot::Vector3 getBottomLeftWorld() const;
@@ -47,15 +48,31 @@ private:
     GeoCoords topLeftGeo;
     double cellsize;
     double nodata_value;
-    godot::Array heightmap;
+    godot::TypedArray<godot::PackedFloat64Array> heightmap;
 
     godot::Ref<GeoMap> geomap;
 };
 
 class ElevationParser : public Parser {
+    GDCLASS(ElevationParser, Parser);
 public:
     using Parser::Parser;
-    godot::Ref<ElevationGrid> import(const godot::String& filename, godot::Ref<GeoMap> geomap = nullptr);
+    godot::Ref<ElevationGrid> import(godot::Ref<GeoMap> geomap = nullptr);
+
+    void set_filename(const godot::String& value) {
+        filename = value;
+    }
+    godot::String get_filename() const {
+        return filename;
+    }
+
+    ~ElevationParser() override = default;
+
+protected:
+    static void _bind_methods();
+
+private:
+    godot::String filename;
 };
 
 #endif // ELEVATION_PARSER_H

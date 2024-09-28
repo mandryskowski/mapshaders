@@ -25,7 +25,7 @@ double ElevationGrid::getCellsize() const { return cellsize; }
 void ElevationGrid::setNodataValue(double value) { nodata_value = value; }
 double ElevationGrid::getNodataValue() const { return nodata_value; }
 
-void ElevationGrid::setHeightmap(godot::Array value) { heightmap = value; }
+void ElevationGrid::setHeightmap(const godot::Array& value) { heightmap = value; }
 godot::Array ElevationGrid::getHeightmap() const { return heightmap; }
 
 godot::Vector3 ElevationGrid::getBottomLeftWorld() const {
@@ -107,7 +107,7 @@ void ElevationGrid::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_cellsize", "value"), &ElevationGrid::setCellsize);
     ClassDB::bind_method(D_METHOD("get_cellsize"), &ElevationGrid::getCellsize);
 
-    ClassDB::bind_method(D_METHOD("set_heightmap", "value"), &ElevationGrid::setHeightmap);
+    //ClassDB::bind_method(D_METHOD("set_heightmap", "value"), &ElevationGrid::setHeightmap);
     ClassDB::bind_method(D_METHOD("get_heightmap"), &ElevationGrid::getHeightmap);
 
     ClassDB::bind_method(D_METHOD("set_nodata_value", "value"), &ElevationGrid::setNodataValue);
@@ -124,7 +124,8 @@ void ElevationGrid::_bind_methods()
     ADD_PROPERTY(PropertyInfo(Variant::INT, "ncols"), "set_ncols", "get_ncols");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "nrows"), "set_nrows", "get_nrows");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cellsize"), "set_cellsize", "get_cellsize");
-    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heightmap"), "set_heightmap", "get_heightmap");
+    //ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heightmap"), "set_heightmap", "get_heightmap");
+    //ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heightmap", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::PACKED_FLOAT64_ARRAY)), "set_heightmap", "get_heightmap");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "nodata_value"), "set_nodata_value", "get_nodata_value");
 }
 
@@ -182,7 +183,7 @@ Ref<ElevationGrid> loadASCIIGrid(const godot::String& filename) {
     }
 
 
-    auto gd_heightmap = Array();
+    auto gd_heightmap = TypedArray<PackedFloat64Array>();
     gd_heightmap.resize(grid->getNrows());
     for (int i = 0; i < grid->getNrows(); i++) {
         gd_heightmap[i] = heightmap[i];
@@ -261,7 +262,7 @@ void printGrid(const std::vector<std::vector<double>>& grid) {
     }
 }
 
-godot::Ref<ElevationGrid> ElevationParser::import(const godot::String& filename, godot::Ref<GeoMap> geomap) {
+godot::Ref<ElevationGrid> ElevationParser::import(godot::Ref<GeoMap> geomap) {
     auto grid = loadASCIIGrid(filename.ascii().ptr());
     if (geomap.is_null()) {
         geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(grid->getTopLeftGeo() - GeoCoords(Longitude::zero(), Latitude::degrees(grid->getCellsize() * grid->getNrows())), grid->getTopLeftGeo() + GeoCoords(Longitude::degrees(grid->getCellsize() * grid->getNcols()), Latitude::zero()))));
@@ -280,39 +281,10 @@ godot::Ref<ElevationGrid> ElevationParser::import(const godot::String& filename,
     return grid;
 }
 
-/*
-int main(int argc, char** argv) {
-    try {
-        if (argc != 2) {
-            std::cerr << "Usage: " << argv[0] << " <input_file.asc>" << std::endl;
-            return 1;
-        }
+void ElevationParser::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("import", "geomap"), &ElevationParser::import);
+    ClassDB::bind_method(D_METHOD("set_filename", "value"), &ElevationParser::set_filename);
+    ClassDB::bind_method(D_METHOD("get_filename"), &ElevationParser::get_filename);
 
-        const char* inputFile = argv[1];
-
-        ElevationGrid grid = loadASCIIGrid(inputFile);
-
-        // Define the area for the subgrid
-        GeoCoords latLonStart(Longitude::degrees(14.35), Latitude::degrees(50.0975));
-        GeoCoords latLonEnd(Longitude::degrees(14.3525), Latitude::degrees(50.1));
-
-        // Extract the subgrid
-        std::vector<std::vector<double>> subgrid = extractSubgrid(grid, latLonStart, latLonEnd);
-
-        // Print the subgrid
-        printGrid(subgrid);
-
-        // Define the point to interpolate
-        GeoCoords point(Longitude::degrees(14.35 - 0.000277778 / 2), Latitude::degrees(50.1 + 0.000277778 / 2));
-
-        // Get the interpolated elevation
-        double elevation = bilinearInterpolation(grid, point);
-
-        std::cout << "Interpolated Elevation: " << elevation << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
-
-    return 0;
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "filename", PROPERTY_HINT_FILE, "*.asc"), "set_filename", "get_filename");
 }
-*/

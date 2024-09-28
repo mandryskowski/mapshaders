@@ -10,6 +10,8 @@ class OSMHeightmap : public godot::RefCounted {
     GDCLASS(OSMHeightmap, godot::RefCounted);
 public:
     virtual double getElevation(const GeoCoords&) const = 0;
+
+    static void _bind_methods() {}
 };
 
 class ElevationHeightmap : public OSMHeightmap {

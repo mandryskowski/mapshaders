@@ -6,11 +6,11 @@
 
 using namespace godot;
 
-godot::Ref<GeoMap> OSMParser::import(const String& file_name, godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap> heightmap) {
+godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap> heightmap) {
     ParserInfo pi;
     pi.geomap = geomap;
     pi.heightmap = heightmap;
-    pi.parser.open(file_name);
+    pi.parser.open(filename);
 
     auto shader_nodes = this->get_shader_nodes();
 
@@ -251,4 +251,53 @@ unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo&
 
     ERR_PRINT_ED("Invalid " + element_type + " " + static_cast<String>(element.get("id", "<invalid_id>")) + ".");
     return 0;
+}
+
+
+void OSMParser::load_tile(unsigned int index) {
+    Ref<FileAccess> fa = FileAccess::open("res://parsed.sgdmap", FileAccess::READ);
+    PackedInt64Array tile_offs, tile_lens;
+
+    tile_offs = fa->get_var();
+    tile_lens = fa->get_var();
+
+    if (tile_offs.size() != tile_lens.size())
+        WARN_PRINT ("Tile offsets count different from tile lengths count");
+    
+    if (tile_lens[index] == 0) {
+        fa->close();
+        return;
+    }
+
+    fa->seek (tile_offs[index]);
+    auto shader_nodes_osm = this->get_shader_nodes();
+    for (int i = 0; i < shader_nodes_osm.size(); i++) {
+        WARN_PRINT("Tile " + String::num_int64(index) + " offset is " + String::num_int64(fa->get_position()));
+        if (fa->get_8() == 1)
+            continue;
+        Object::cast_to<Node>(shader_nodes_osm[i])->call("load_tile", fa);
+    }
+
+    fa->close();
+}
+
+void OSMParser::load_tiles(bool) {
+    for (int i = 0; i < 5 * 5; i++) {
+        load_tile (i);
+    }
+}
+
+void OSMParser::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("import", "geomap", "heightmap"), &OSMParser::import);
+    ClassDB::bind_method(D_METHOD("set_filename", "value"), &OSMParser::set_filename);
+    ClassDB::bind_method(D_METHOD("get_filename"), &OSMParser::get_filename);
+    ClassDB::bind_method(D_METHOD("load_tile", "index"), &OSMParser::load_tile);
+    ClassDB::bind_method(D_METHOD("load_tiles", "plsrefactor"), &OSMParser::load_tiles);
+    ClassDB::bind_method(D_METHOD("get_true"), &OSMParser::get_true);
+
+    ClassDB::bind_method(D_METHOD("help", "plsrefactor", "halo"), &OSMParser::help);
+
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "filename", PROPERTY_HINT_FILE, "*.osm"), "set_filename", "get_filename");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "load_all_tiles"), "load_tiles", "get_true");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "help"), "help", "get_true");
 }

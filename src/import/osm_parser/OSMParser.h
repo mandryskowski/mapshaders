@@ -13,6 +13,7 @@
 #include <godot_cpp/templates/vector.hpp>
 
 class OSMParser : public Parser {
+    GDCLASS(OSMParser, Parser);
 public:
     using Parser::Parser;
     struct World {
@@ -21,12 +22,30 @@ public:
         godot::HashMap<int64_t, godot::Dictionary> relations;
     };
 
-    godot::Ref<GeoMap> import(const godot::String& file_name, godot::Ref<GeoMap> geomap = nullptr, godot::Ref<OSMHeightmap> heightmap = nullptr);
+    godot::Ref<GeoMap> import(godot::Ref<GeoMap> geomap = nullptr, godot::Ref<OSMHeightmap> heightmap = nullptr);
+    godot::Ref<GeoMap> help(godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap>) {}
+    void load_tile(unsigned int index);
+    void load_tiles(bool);
+
+    bool get_true() {
+        return true;
+    }
+
+    void set_filename(const godot::String& value) {
+        filename = value;
+    }
+    godot::String get_filename() const {
+        return filename;
+    }
+
+    ~OSMParser() override = default;
+protected:
+    static void _bind_methods();
 
 private:
     struct ParserInfo {
         godot::XMLParser parser;
-        godot::Array xml_stack; // Array of Dictionaries.
+        godot::TypedArray<godot::Dictionary> xml_stack;
         GlobalRequirements reqs;
         godot::Ref<GeoMap> geomap;
         godot::Ref<OSMHeightmap> heightmap;
@@ -45,8 +64,8 @@ private:
 
     unsigned int get_element_tile(const godot::String& element_type, ParserInfo& pi, godot::Dictionary& element);
 
-    // parse_xml_node_end helpers
-
+    // Fields
+    godot::String filename;
 };
 
 #endif // OSMPARSER_H

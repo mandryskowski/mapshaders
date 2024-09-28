@@ -1,7 +1,10 @@
 #include "register_types.h"
 #include <godot_cpp/core/class_db.hpp>
 
+#include "import/osm_parser/OSMParser.h"
 #include "import/elevation/ElevationParser.h"
+#include "import/coastline/CoastlineParser.h"
+
 
 #include "import/SGImport.h"
 #define P2T_STATIC_EXPORTS
@@ -30,6 +33,13 @@ void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<PolyUtil>();
 	ClassDB::register_class<GlobalRequirements>();
 	ClassDB::register_class<GlobalRequirementsBuilder>();
+
+	ClassDB::register_abstract_class<Parser>();
+	ClassDB::register_class<OSMParser>();
+	ClassDB::register_class<ElevationParser>();
+	ClassDB::register_class<CoastlineParser>();
+
+	ClassDB::register_abstract_class<OSMHeightmap>();
 }
 void uninitialize_streetsgd_module(ModuleInitializationLevel p_level)
 {

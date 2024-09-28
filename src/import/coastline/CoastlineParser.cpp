@@ -2,6 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 
 #pragma pack(push, 1) // Ensures that the structs are packed with no padding
 const double R = 6378137.0; // Earth radius in meters for Mercator
@@ -59,8 +61,8 @@ std::pair<double, double> readShapefilePoint(std::ifstream& shpFile, const Shape
     return {longitude, latitude};
 }
 
-ShapefileFormat getShapefileFormat(const godot::String& prjFileName) {
-    std::ifstream prjFile(prjFileName.ascii());
+ShapefileFormat getShapefileFormat(const godot::String& prjFilename) {
+    std::ifstream prjFile(ProjectSettings::get_singleton()->globalize_path(prjFilename).ascii());
     if (!prjFile) {
         WARN_PRINT("Unable to open .prj file.");
         return ShapefileFormat::UNKNOWN;
@@ -78,12 +80,12 @@ ShapefileFormat getShapefileFormat(const godot::String& prjFileName) {
     return ShapefileFormat::UNKNOWN;
 }
 
-Array readShapefile(const std::string& shpFileName, const std::string& shxFileName, ShapefileFormat format,
+TypedArray<Array> readShapefile(const std::string& shpFileName, const std::string& shxFileName, ShapefileFormat format,
                    double queryXMin, double queryYMin, double queryXMax, double queryYMax) {
 
     std::ifstream shpFile(shpFileName, std::ios::binary);
     std::ifstream shxFile(shxFileName, std::ios::binary);
-    godot::Array polygons;
+    TypedArray<Array> polygons;
     if (!shpFile || !shxFile) {
         WARN_PRINT("Unable to open coastline shapefiles.");
         return polygons;
@@ -154,7 +156,7 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
                 //std::cout << "Polygon Record #" << recordHeader.recordNumber << " has " 
                 //        << numParts << " parts and " << numPoints << " points." << std::endl;
 
-                Array polygon;
+                TypedArray<PackedVector2Array> polygon;
     
                 for (int i = 0; i < numParts; ++i) {
                     int start = parts[i];
@@ -182,15 +184,18 @@ Array readShapefile(const std::string& shpFileName, const std::string& shxFileNa
     return polygons;
 }
 
-void CoastlineParser::import(const godot::String &filenameWithoutExtension, godot::Ref<GeoMap> geomap, double xd) {
-    import(filenameWithoutExtension + godot::String(".shp"), filenameWithoutExtension + godot::String(".shx"), filenameWithoutExtension + godot::String(".prj"), geomap, xd);
-}
-
-void CoastlineParser::import(const godot::String &shpFilename, const godot::String &shxFilename, const godot::String &prjFilename, godot::Ref<GeoMap> geomap, double xd)
+void CoastlineParser::import(godot::Ref<GeoMap> geomap)
 {
     //auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 105, -8, 108, -5); indo cypel
     //auto polygons = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), geomap, 0.19, 50.6, 0.21, 51);
-    const auto polygons_geo = readShapefile(shpFilename.utf8().get_data(), shxFilename.utf8().get_data(), getShapefileFormat(prjFilename), -xd, -xd, xd, xd);
+    auto geomap_origin_cast = Object::cast_to<OriginBasedGeoMap>(geomap.ptr());
+    Vector2 minCorner(-size_in_degrees, -size_in_degrees), maxCorner(size_in_degrees, size_in_degrees);
+    if (geomap_origin_cast) {
+        Vector2 origin(geomap_origin_cast->get_geo_origin_longitude_degrees(), geomap_origin_cast->get_geo_origin_latitude_degrees());
+        minCorner += origin;
+        maxCorner += origin;
+    }
+    const auto polygons_geo = readShapefile(ProjectSettings::get_singleton()->globalize_path(shpFilename).utf8().get_data(), ProjectSettings::get_singleton()->globalize_path(shxFilename).utf8().get_data(), getShapefileFormat(prjFilename), minCorner.x, minCorner.y, maxCorner.x, maxCorner.y);
     const auto shader_nodes = this->get_shader_nodes();
     
     WARN_PRINT("Imported " + String::num_int64(polygons_geo.size()) + " polygons.");
@@ -237,4 +242,20 @@ void CoastlineParser::import(const godot::String &shpFilename, const godot::Stri
         for (int i = 0; i < shader_nodes.size(); i++)
             Object::cast_to<Node>(shader_nodes[i])->call("import_polygons_world", polygons_world);
     }
+}
+
+void CoastlineParser::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("set_size_in_degrees", "value"), &CoastlineParser::set_size_in_degrees);
+    ClassDB::bind_method(D_METHOD("get_size_in_degrees"), &CoastlineParser::get_size_in_degrees);
+    ClassDB::bind_method(D_METHOD("set_shp_filename", "value"), &CoastlineParser::set_shp_filename);
+    ClassDB::bind_method(D_METHOD("get_shp_filename"), &CoastlineParser::get_shp_filename);
+    ClassDB::bind_method(D_METHOD("set_shx_filename", "value"), &CoastlineParser::set_shx_filename);
+    ClassDB::bind_method(D_METHOD("get_shx_filename"), &CoastlineParser::get_shx_filename);
+    ClassDB::bind_method(D_METHOD("set_prj_filename", "value"), &CoastlineParser::set_prj_filename);
+    ClassDB::bind_method(D_METHOD("get_prj_filename"), &CoastlineParser::get_prj_filename);
+
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "size_in_degrees"), "set_size_in_degrees", "get_size_in_degrees");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "shp_filename", PROPERTY_HINT_FILE, "*.shp"), "set_shp_filename", "get_shp_filename");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "shx_filename", PROPERTY_HINT_FILE, "*.shx"), "set_shx_filename", "get_shx_filename");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "prj_filename", PROPERTY_HINT_FILE, "*.prj"), "set_prj_filename", "get_prj_filename");
 }

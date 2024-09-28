@@ -1,6 +1,8 @@
 @tool
 extends Node
 
+@export var material : Material
+
 
 func import_polygons_geo(polygons : Array, geomap : GeoMap):
 	for child in self.get_children():
@@ -22,7 +24,7 @@ func import_polygons_geo(polygons : Array, geomap : GeoMap):
 
 		
 		var water = RenderUtil.area_poly(sea_area, "Water", RenderUtil.polygon_triangles(triangles_world, 0, normals))
-		water.mesh.surface_set_material(0, load("res://assets/water/water.tres"))
+		water.mesh.surface_set_material(0, material)
 		
 		#var seabed = RenderUtil.achild(sea_area, MeshInstance3D.new(), "Seabed")
 		#seabed.mesh = water.mesh.duplicate()

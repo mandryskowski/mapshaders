@@ -5,54 +5,12 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/error_macros.hpp>
 #include "GeoMap.h"
+#include "Parser.h"
 #include "osm_parser/OSMHeightmap.h"
 
 class SGImport : public godot::Node
 {
     GDCLASS(SGImport, godot::Node);
-
-    void set_origin_longitude(double lon) {
-
-    }
-    
-    double get_origin_longitude() {
-        return 0.0;
-    }
-
-    void set_filename(godot::String _filename) {
-        this->filename = _filename;
-    }
-    godot::String get_filename() {
-        return filename;
-    }
-
-    void set_elevation_filename(godot::String _filename) {
-        this->elevation_filename = _filename;
-    }
-    godot::String get_elevation_filename() {
-        return elevation_filename;
-    }
-
-    void set_shader_nodes_osm(godot::Array nodes) {
-        this->shader_nodes_osm = nodes;
-    }
-    godot::Array get_shader_nodes_osm() {
-        return shader_nodes_osm;
-    }
-
-    void set_shader_nodes_elevation(godot::Array nodes) {
-        this->shader_nodes_elevation = nodes;
-    }
-    godot::Array get_shader_nodes_elevation() {
-        return shader_nodes_elevation;
-    }
-
-    void set_shader_nodes_coastline(godot::Array nodes) {
-        this->shader_nodes_coastline = nodes;
-    }
-    godot::Array get_shader_nodes_coastline() {
-        return shader_nodes_coastline;
-    }
 
     void set_geo_map(godot::Ref<GeoMap> _geomap) {
         this->geomap = _geomap;
@@ -61,11 +19,11 @@ class SGImport : public godot::Node
         return geomap;
     }
 
-    void set_coastline_tile_size(double _coastline_tile_size) {
-        this->coastline_tile_size = _coastline_tile_size;
+    godot::Array get_parsers() {
+        return parsers;
     }
-    double get_coastline_tile_size() {
-        return coastline_tile_size;
+    void set_parsers(godot::Array _parsers) {
+        parsers = _parsers;
     }
 
     
@@ -75,8 +33,6 @@ class SGImport : public godot::Node
 
     void reset_geo_info(bool);
 
-    void load_tile(unsigned int);
-    void load_tiles(bool);
     bool get_true() {
         return true;
     }
@@ -91,14 +47,10 @@ protected:
 private:
     godot::Array node_path_array_to_node_array(godot::Array node_path_array);
 
-    double longitude;
-    double coastline_tile_size;
-
-    godot::String filename;
-    godot::String elevation_filename;
-    godot::Array shader_nodes_osm, shader_nodes_elevation, shader_nodes_coastline;
     godot::Ref<GeoMap> geomap;
     godot::Ref<OSMHeightmap> heightmap;
+
+    godot::TypedArray<Parser> parsers;
 };
 
 #endif // SGIMPORT_H
