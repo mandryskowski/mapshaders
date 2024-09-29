@@ -9,6 +9,7 @@ using namespace godot;
 godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap> heightmap) {
     ParserInfo pi;
     pi.geomap = geomap;
+    pi.tilemap = godot::Ref<TileMap>(memnew(EquirectangularTileMap));
     pi.heightmap = heightmap;
     pi.parser.open(filename);
 
@@ -49,7 +50,12 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
 
     Ref<FileAccess> out = FileAccess::open("res://parsed.sgdmap", FileAccess::WRITE);
     PackedInt64Array tile_offs, tile_lens;
+
+    for (int i = 0; i < pi.tile_bytes.size(); i++) {
+        WARN_PRINT(String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x) + " " + String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
+    }
     // We will store tile offsets at the beginning
+    /*
     tile_offs.resize (5 * 5);
     tile_lens.resize (5 * 5);
     out->store_var (tile_offs);
@@ -80,7 +86,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
     // Overwrite tile offsets at the beginning
     out->seek(0);
     out->store_var (tile_offs);
-    out->store_var (tile_lens);
+    out->store_var (tile_lens);*/
     return pi.geomap;
 }
 
@@ -142,32 +148,34 @@ void OSMParser::parse_xml_node_end(ParserInfo &pi) {
         return;
     }
 
-    unsigned int tile = get_element_tile(element_type, pi, item);
-
-    //tile = 0;
-    if (tile >= 5 * 5) {
-        pi.xml_stack.pop_back();
-        return;
+    Vector2i tile = get_element_tile(element_type, pi, item);
+    if (!pi.tile_bytes.has(tile)) {
+        Array fas;
+        for (int j = 0; j < shader_nodes.size(); j++) {
+            fas.append(memnew(FileAccessMemoryResizable));
+        }
+        pi.tile_bytes[tile] = fas;
     }
+    auto tile_fas = static_cast<Array>(pi.tile_bytes[tile]);
 
 
     if (element_type == "node") {
         pi.world.nodes[(int64_t)item["id"]] = item;
-        for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
-            Object::cast_to<Node>(shader_nodes[i])->call("import_node", item, pi.tile_bytes[tile][i]);
+        for (int i = 0; i < tile_fas.size(); i++) {
+            Object::cast_to<Node>(shader_nodes[i])->call("import_node", item, tile_fas[i]);
 
         }
         //Error res = sg_import.emit_signal("import_node", item, *pi.tile_bytes[tile]);
     } else if (element_type == "way") {
         
         pi.world.ways[(int64_t)item["id"]] = item;  
-        for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
-            Object::cast_to<Node>(shader_nodes[i])->call("import_way", item, pi.tile_bytes[tile][i]);
+        for (int i = 0; i < tile_fas.size(); i++) {
+            Object::cast_to<Node>(shader_nodes[i])->call("import_way", item, tile_fas[i]);
         }
     } else if (element_type == "relation") {
         pi.world.relations[(int64_t)item["id"]] = item;
-        for (int i = 0; i < pi.tile_bytes[tile].size(); i++) {
-            Object::cast_to<Node>(shader_nodes[i])->call("import_relation", item, pi.tile_bytes[tile][i]);
+        for (int i = 0; i < tile_fas.size(); i++) {
+            Object::cast_to<Node>(shader_nodes[i])->call("import_relation", item, tile_fas[i]);
         }
     }
     
@@ -194,17 +202,6 @@ void OSMParser::parse_bounds(ParserInfo & pi) {
     }
 
     pi.tile_bytes.clear();
-    pi.tile_bytes.resize (grid_size * grid_size);
-
-    for (int i = 0; i < grid_size * grid_size; i++) {
-        Vector<Ref<FileAccessMemoryResizable>>& tile_fas = const_cast<Vector<Ref<FileAccessMemoryResizable>>&>(pi.tile_bytes[i]);
-        tile_fas.resize (shader_nodes.size());
-        for (int j = 0; j < shader_nodes.size(); j++) {
-            Ref<FileAccessMemoryResizable>& fa = const_cast<Ref<FileAccessMemoryResizable>&>(tile_fas[j]);
-            fa.instantiate();
-            //fa->open_resizable (2);
-        }
-    }
 }
 
 void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
@@ -219,14 +216,14 @@ void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
     d["pos_elevation"] = pi.heightmap.is_valid() ? pos + up * pi.heightmap->getElevation(coords) : pos;
 }
 
-unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo& pi, Dictionary& element) {
+Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi, Dictionary& element) {
     if (element_type == "node")
-        return 0;//return pi.geomap->grid_index (element["pos"]);
+        return pi.tilemap->get_tile_geo(GeoCoords::from_vector2_representation(static_cast<Vector2>(element["pos_geo"])));
     else if (element_type == "way") {
         const Array& nodes = static_cast<Array>(element["nodes"]);
         if (nodes.is_empty()) {
             ERR_PRINT_ED("Way " + static_cast<String>(element.get("id", "<invalid_id>")) + " has no nodes.");
-            return 0;
+            return Vector2(1 << 31, 1 << 31);
         }
 
         return get_element_tile("node", pi, pi.world.nodes[nodes[0]]);
@@ -236,7 +233,7 @@ unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo&
         
         if (members.is_empty()) {
             ERR_PRINT_ED("Relation " + static_cast<String>(element.get("id", "<invalid_id>")) + " has no members.");
-            return 0;
+            return Vector2(1 << 31, 1 << 31);
         }
 
         for (int i = 0; i < members.size(); i++) {
@@ -250,7 +247,7 @@ unsigned int OSMParser::get_element_tile(const String& element_type, ParserInfo&
     }
 
     ERR_PRINT_ED("Invalid " + element_type + " " + static_cast<String>(element.get("id", "<invalid_id>")) + ".");
-    return 0;
+    return Vector2(1 << 31, 1 << 31);
 }
 
 

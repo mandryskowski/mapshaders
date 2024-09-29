@@ -5,12 +5,14 @@
 #include "../Parser.h"
 #include "../../util/GlobalRequirements.h"
 #include "OSMHeightmap.h"
+#include "../TileMap.h"
 
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/classes/xml_parser.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/templates/vector.hpp>
+
 
 class OSMParser : public Parser {
     GDCLASS(OSMParser, Parser);
@@ -48,8 +50,9 @@ private:
         godot::TypedArray<godot::Dictionary> xml_stack;
         GlobalRequirements reqs;
         godot::Ref<GeoMap> geomap;
+        godot::Ref<TileMap> tilemap;
         godot::Ref<OSMHeightmap> heightmap;
-        godot::Vector<godot::Vector<godot::Ref<FileAccessMemoryResizable>>> tile_bytes;
+        godot::Dictionary tile_bytes; // Vector2 -> Array of Ref<FileAccessMemoryResizable>
         World world;
         ParserInfo() : geomap(nullptr) {}
     };
@@ -62,7 +65,7 @@ private:
     void parse_bounds(ParserInfo&);
     void parse_node(ParserInfo&, godot::Dictionary& d);
 
-    unsigned int get_element_tile(const godot::String& element_type, ParserInfo& pi, godot::Dictionary& element);
+    godot::Vector2i get_element_tile(const godot::String& element_type, ParserInfo& pi, godot::Dictionary& element);
 
     // Fields
     godot::String filename;

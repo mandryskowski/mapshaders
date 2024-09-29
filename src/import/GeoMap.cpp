@@ -20,7 +20,6 @@ OriginBasedGeoMap::OriginBasedGeoMap(const GeoCoords &min_bounds, const GeoCoord
     geo_origin ((max_bounds + min_bounds) * 0.5) {}
 
 void OriginBasedGeoMap::_bind_methods() {
-    GeoMap::_bind_methods();
 
     ClassDB::bind_method(D_METHOD("set_geo_origin_longitude_degrees", "degrees"), &OriginBasedGeoMap::set_geo_origin_longitude_degrees);
     ClassDB::bind_method(D_METHOD("get_geo_origin_longitude_degrees"), &OriginBasedGeoMap::get_geo_origin_longitude_degrees);
@@ -54,7 +53,6 @@ Vector3 EquirectangularGeoMap::geo_to_world_impl(GeoCoords coords) {
 }
 
 void EquirectangularGeoMap::_bind_methods() {
-    OriginBasedGeoMap::_bind_methods();
 }
 
 /* Sphere */
@@ -78,5 +76,4 @@ godot::Vector3 SphereGeoMap::geo_to_world_up(GeoCoords coords) {
 }
 
 void SphereGeoMap::_bind_methods() {
-    GeoMap::_bind_methods();
 }

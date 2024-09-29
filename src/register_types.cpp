@@ -28,6 +28,9 @@ void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<EquirectangularGeoMap>();
 	ClassDB::register_class<SphereGeoMap>();
 
+	ClassDB::register_abstract_class<TileMap>();
+	ClassDB::register_class<EquirectangularTileMap>();
+
 	ClassDB::register_class<ElevationGrid>();
 	ClassDB::register_class<SkeletonSubtree>();
 	ClassDB::register_class<PolyUtil>();
