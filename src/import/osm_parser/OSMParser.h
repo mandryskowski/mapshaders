@@ -25,7 +25,6 @@ public:
     };
 
     godot::Ref<GeoMap> import(godot::Ref<GeoMap> geomap = nullptr, godot::Ref<OSMHeightmap> heightmap = nullptr);
-    godot::Ref<GeoMap> help(godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap>) {}
     void load_tile(unsigned int index);
     void load_tiles(bool);
 

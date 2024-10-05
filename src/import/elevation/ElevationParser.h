@@ -2,6 +2,7 @@
 #define ELEVATION_PARSER_H
 #include "../GeoMap.h"
 #include "../Parser.h"
+#include "../../util/Util.h"
 #include <godot_cpp/variant/typed_array.hpp>
 
 class ElevationGrid : public godot::RefCounted {
@@ -25,10 +26,10 @@ public:
     void setHeightmap(const godot::Array& value);
     godot::Array getHeightmap() const;
 
-    __declspec(dllexport) godot::Vector3 getBottomLeftWorld() const;
-    __declspec(dllexport) godot::Vector3 getBottomRightWorld() const;
-    __declspec(dllexport) godot::Vector3 getTopLeftWorld() const;
-    __declspec(dllexport) godot::Vector3 getTopRightWorld() const;
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 getBottomLeftWorld() const;
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 getBottomRightWorld() const;
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 getTopLeftWorld() const;
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 getTopRightWorld() const;
 
     godot::Ref<GeoMap> get_geo_map() const {
         return geomap;

@@ -14,7 +14,7 @@ public:
      * @param coord The geo space coordinate to convert.
      * @return The tile coordinate.
      */
-    virtual godot::Vector2i get_tile_geo(GeoCoords);
+    virtual godot::Vector2i get_tile_geo(GeoCoords) = 0;
 
     /**
      * Turn a coordinate in geo space into a tile coordinate.

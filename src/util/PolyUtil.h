@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include "Util.h"
 
 class SkeletonSubtree : public godot::RefCounted {
     GDCLASS(SkeletonSubtree, godot::RefCounted);
@@ -27,8 +28,8 @@ class PolyUtil : public godot::RefCounted
 {
     GDCLASS(PolyUtil, godot::RefCounted);
 public:
-    __declspec(dllexport) godot::PackedVector2Array triangulate_with_holes(godot::PackedVector2Array outer, godot::Array holes);
-    __declspec(dllexport) godot::Array straight_skeleton(godot::PackedVector2Array outer, godot::Array holes);
+    MAPSHADERS_DLL_SYMBOL godot::PackedVector2Array triangulate_with_holes(godot::PackedVector2Array outer, godot::Array holes);
+    MAPSHADERS_DLL_SYMBOL godot::Array straight_skeleton(godot::PackedVector2Array outer, godot::Array holes);
 protected:
     static void _bind_methods();
 };

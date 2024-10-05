@@ -1,5 +1,6 @@
 #ifndef GEOMAP_H
 #define GEOMAP_H
+#include "../util/Util.h"
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
@@ -151,16 +152,16 @@ public:
     GeoMap() : scale_factor(1.0) {}
 
     /* Converts Earth space coordinates into World space. */
-    __declspec(dllexport) godot::Vector3 geo_to_world (GeoCoords coords) {
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 geo_to_world (GeoCoords coords) {
         return geo_to_world_impl(coords) * scale_factor;
     }
-    __declspec(dllexport) godot::Vector3 geo_to_world (godot::Vector2 vec) {
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 geo_to_world (godot::Vector2 vec) {
         return geo_to_world(GeoCoords::from_vector2_representation(vec));
     };
 
     /* Converts Earth space coordinates into the UP vector. */
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) = 0;
-    __declspec(dllexport) godot::Vector3 geo_to_world_up (godot::Vector2 vec) {
+    MAPSHADERS_DLL_SYMBOL virtual godot::Vector3 geo_to_world_up (GeoCoords) = 0;
+    MAPSHADERS_DLL_SYMBOL godot::Vector3 geo_to_world_up (godot::Vector2 vec) {
         return geo_to_world_up(GeoCoords::from_vector2_representation(vec));
     };
 
@@ -224,14 +225,14 @@ class EquirectangularGeoMap : public OriginBasedGeoMap {
 public:
     using OriginBasedGeoMap::OriginBasedGeoMap;
 
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) {
+    MAPSHADERS_DLL_SYMBOL virtual godot::Vector3 geo_to_world_up (GeoCoords) {
         return godot::Vector3(0.0, 1.0, 0.0);
     }
 
     virtual ~EquirectangularGeoMap() {}	
 
 protected:
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world_impl (GeoCoords) override;
+    MAPSHADERS_DLL_SYMBOL virtual godot::Vector3 geo_to_world_impl (GeoCoords) override;
     static void _bind_methods();
 };
 
@@ -240,12 +241,12 @@ class SphereGeoMap : public GeoMap {
 
 public:
     /* Converts Earth space coordinates into World space. */
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world_up (GeoCoords) override;
+    MAPSHADERS_DLL_SYMBOL virtual godot::Vector3 geo_to_world_up (GeoCoords) override;
 
     virtual ~SphereGeoMap() {}
 
 protected:
-    __declspec(dllexport) virtual godot::Vector3 geo_to_world_impl (GeoCoords) override;
+    MAPSHADERS_DLL_SYMBOL virtual godot::Vector3 geo_to_world_impl (GeoCoords) override;
     static void _bind_methods();
 };
 

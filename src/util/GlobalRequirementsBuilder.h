@@ -1,6 +1,7 @@
 #ifndef GLOBAL_REQUIREMENTS_BUILDER_H
 #define GLOBAL_REQUIREMENTS_BUILDER_H
 #include <godot_cpp/variant/variant.hpp>
+#include "Util.h"
 #include "GlobalRequirements.h"
 
 
@@ -34,7 +35,7 @@ public:
      * @param one_req The node requirement to add.
      * @return A reference to the builder object.
      */
-    __declspec(dllexport) godot::Variant withNodeRequirement(godot::String one_req) {
+    MAPSHADERS_DLL_SYMBOL godot::Variant withNodeRequirement(godot::String one_req) {
         ndr.append(one_req);
         return this;
     }
@@ -45,7 +46,7 @@ public:
      * @param one_req The way requirement to add.
      * @return A reference to the builder object.
      */
-    __declspec(dllexport) godot::Variant withWayRequirement(godot::String one_req) {
+    MAPSHADERS_DLL_SYMBOL godot::Variant withWayRequirement(godot::String one_req) {
         wr.append(one_req);
         return this;
     }
@@ -56,7 +57,7 @@ public:
      * @param one_req The relation requirement to add.
      * @return A reference to the builder object.
      */
-    __declspec(dllexport) godot::Variant withRelationRequirement(godot::String one_req) {
+    MAPSHADERS_DLL_SYMBOL godot::Variant withRelationRequirement(godot::String one_req) {
         rr.append(one_req);
         return this;
     }
@@ -67,7 +68,7 @@ public:
      * @param req The array of node requirements to add.
      * @return A reference to the builder object.
      */
-    __declspec(dllexport) godot::Variant withNodeRequirements(godot::PackedStringArray req) {
+    MAPSHADERS_DLL_SYMBOL godot::Variant withNodeRequirements(godot::PackedStringArray req) {
         ndr = req;
         return this;
     }
@@ -78,7 +79,7 @@ public:
      * @param req The array of way requirements to add.
      * @return A reference to the builder object.
      */
-    __declspec(dllexport) godot::Variant withWayRequirements(godot::PackedStringArray req) {
+    MAPSHADERS_DLL_SYMBOL godot::Variant withWayRequirements(godot::PackedStringArray req) {
         wr = req;
         return this;
     }
@@ -89,7 +90,7 @@ public:
      * @param req The array of relation requirements to add.
      * @return A reference to the builder object.
      */
-    __declspec(dllexport) godot::Variant withRelationRequirements(godot::PackedStringArray req) {
+    MAPSHADERS_DLL_SYMBOL godot::Variant withRelationRequirements(godot::PackedStringArray req) {
         rr = req;
         return this;
     }
@@ -99,7 +100,7 @@ public:
      * 
      * @return The built GlobalRequirements object.
      */
-    __declspec(dllexport) godot::Variant build() {
+    MAPSHADERS_DLL_SYMBOL godot::Variant build() {
         // Return the built GlobalRequirements object
         return memnew(GlobalRequirements(ndr, wr, rr));
     }

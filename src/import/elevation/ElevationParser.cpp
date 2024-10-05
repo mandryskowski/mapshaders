@@ -7,6 +7,7 @@
 #include <godot_cpp/core/error_macros.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include "../../util/Util.h"
 
 using namespace godot;
 
@@ -46,7 +47,7 @@ godot::Vector3 ElevationGrid::getBottomRightWorld() const {
     return this->geomap->geo_to_world(getTopLeftGeo() + GeoCoords(Longitude::degrees(getCellsize() * getNcols()), Latitude::degrees(-getCellsize() * getNrows())));
 }
 
-__declspec(dllexport) godot::Vector3 ElevationGrid::getTopLeftWorld() const {
+MAPSHADERS_DLL_SYMBOL godot::Vector3 ElevationGrid::getTopLeftWorld() const {
     if (this->geomap == nullptr) {
         ERR_PRINT("GeoMap is not set");
         return godot::Vector3();

@@ -292,9 +292,6 @@ void OSMParser::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_tiles", "plsrefactor"), &OSMParser::load_tiles);
     ClassDB::bind_method(D_METHOD("get_true"), &OSMParser::get_true);
 
-    ClassDB::bind_method(D_METHOD("help", "plsrefactor", "halo"), &OSMParser::help);
-
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "filename", PROPERTY_HINT_FILE, "*.osm"), "set_filename", "get_filename");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "load_all_tiles"), "load_tiles", "get_true");
-    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "help"), "help", "get_true");
 }
