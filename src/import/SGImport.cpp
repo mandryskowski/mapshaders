@@ -12,7 +12,7 @@ void SGImport::import_osm(bool) {
         Ref<OSMParser> osm_parser = Object::cast_to<OSMParser>(parser.ptr());
         if (osm_parser.is_valid()) {
             auto returned_geomap = osm_parser->import(this->geomap, this->heightmap);
-
+    
             if (!this->geomap.is_valid()) {
                 this->set_geo_map(returned_geomap); 
             }
@@ -70,7 +70,7 @@ void SGImport::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "import_elevation"), "import_elevation", "get_true");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "import_coastline"), "import_coastline", "get_true");
     
-    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "parsers", PROPERTY_HINT_ARRAY_TYPE, "Parser"), "set_parsers", "get_parsers");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "parsers", PROPERTY_HINT_TYPE_STRING, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Parser"), PROPERTY_HINT_ARRAY_TYPE), "set_parsers", "get_parsers");
    // ADD_SIGNAL()
 	//ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "latitude", PROPERTY_HINT_RANGE, "-90,90,0.01"), "set_origin_latitude", "get_origin_latitude");
     

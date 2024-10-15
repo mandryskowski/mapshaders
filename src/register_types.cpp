@@ -17,7 +17,7 @@
 
 using namespace godot;
 
-void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
+void initialize_mapshaders(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
 		return;
 
@@ -28,7 +28,7 @@ void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<EquirectangularGeoMap>();
 	ClassDB::register_class<SphereGeoMap>();
 
-	ClassDB::register_abstract_class<TileMap>();
+	ClassDB::register_abstract_class<TileMapBase>();
 	ClassDB::register_class<EquirectangularTileMap>();
 
 	ClassDB::register_class<ElevationGrid>();
@@ -44,7 +44,7 @@ void initialize_streetsgd_module(ModuleInitializationLevel p_level) {
 
 	ClassDB::register_abstract_class<OSMHeightmap>();
 }
-void uninitialize_streetsgd_module(ModuleInitializationLevel p_level)
+void uninitialize_mapshaders(ModuleInitializationLevel p_level)
 {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
 		return;
@@ -52,11 +52,11 @@ void uninitialize_streetsgd_module(ModuleInitializationLevel p_level)
 
 extern "C" {
 // Initialization.
-GDExtensionBool GDE_EXPORT example_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
+GDExtensionBool GDE_EXPORT mapshaders_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
 	godot::GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 
-	init_obj.register_initializer(initialize_streetsgd_module);
-	init_obj.register_terminator(uninitialize_streetsgd_module);
+	init_obj.register_initializer(initialize_mapshaders);
+	init_obj.register_terminator(uninitialize_mapshaders);
 	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
 	return init_obj.init();

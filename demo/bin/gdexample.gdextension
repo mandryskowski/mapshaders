@@ -1,6 +1,6 @@
 [configuration]
 
-entry_symbol = "example_library_init"
+entry_symbol = "mapshaders_init"
 compatibility_minimum = "4.2"
 
 [libraries]
@@ -21,30 +21,29 @@ android.debug.x86_64 = "res://bin/libgdexample.android.template_debug.x86_64.so"
 android.release.x86_64 = "res://bin/libgdexample.android.template_release.x86_64.so"
 android.debug.arm64 = "res://bin/libgdexample.android.template_debug.arm64.so"
 android.release.arm64 = "res://bin/libgdexample.android.template_release.arm64.so"
+web.debug = "res://bin/libgdexample.web.template_debug.wasm32.wasm"
 
 [dependencies]
 
 macos.debug = {
-    "res://bin/libdependency.macos.template_debug.framework" : "libraries"
+    "res://bin/libdependency.macos.template_debug.framework" : ""
 }
 macos.release = {
-    "res://bin/libdependency.macos.template_release.framework" : "libraries"
+    "res://bin/libdependency.macos.template_release.framework" : ""
 }
 windows.debug = {
-    "res://bin/libdependency.windows.template_debug.x86_64.dll" : "libraries",
-    "res://bin/libdependency.windows.template_debug.x86_32.dll" : "libraries"
+    "res://bin/libgdexample.windows.template_debug.x86_64.dll" : ""
 }
 windows.release = {
-    "res://bin/libdependency.windows.template_release.x86_64.dll" : "libraries",
-    "res://bin/libdependency.windows.template_release.x86_32.dll" : "libraries"
+    "res://bin/libgdexample.windows.template_release.x86_64.dll" : ""
 }
 linux.debug = {
-    "res://bin/libdependency.linux.template_debug.x86_64.so" : "libraries",
-    "res://bin/libdependency.linux.template_debug.arm64.so" : "libraries",
-    "res://bin/libdependency.linux.template_debug.rv64.so" : "libraries"
+    "res://bin/libdependency.linux.template_debug.x86_64.so" : "",
+    "res://bin/libdependency.linux.template_debug.arm64.so" : "",
+    "res://bin/libdependency.linux.template_debug.rv64.so" : ""
 }
 linux.release = {
-    "res://bin/libdependency.linux.template_release.x86_64.so" : "libraries",
-    "res://bin/libdependency.linux.template_release.arm64.so" : "libraries",
-    "res://bin/libdependency.linux.template_release.rv64.so" : "libraries"
+    "res://bin/libdependency.linux.template_release.x86_64.so" : "",
+    "res://bin/libdependency.linux.template_release.arm64.so" : "",
+    "res://bin/libdependency.linux.template_release.rv64.so" : ""
 }

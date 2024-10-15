@@ -28,6 +28,10 @@ public:
     void load_tile(unsigned int index);
     void load_tiles(bool);
 
+    void load_tile_test(bool) {
+        load_tile(test_index_to_load);
+    }
+
     bool get_true() {
         return true;
     }
@@ -37,6 +41,13 @@ public:
     }
     godot::String get_filename() const {
         return filename;
+    }
+
+    void set_test_index_to_load(int value) {
+        test_index_to_load = value;
+    }
+    int get_test_index_to_load() const {
+        return test_index_to_load;
     }
 
     ~OSMParser() override = default;
@@ -49,7 +60,7 @@ private:
         godot::TypedArray<godot::Dictionary> xml_stack;
         GlobalRequirements reqs;
         godot::Ref<GeoMap> geomap;
-        godot::Ref<TileMap> tilemap;
+        godot::Ref<TileMapBase> tilemap;
         godot::Ref<OSMHeightmap> heightmap;
         godot::Dictionary tile_bytes; // Vector2 -> Array of Ref<FileAccessMemoryResizable>
         World world;
@@ -68,6 +79,8 @@ private:
 
     // Fields
     godot::String filename;
-};
 
+    int test_index_to_load;
+};
+ 
 #endif // OSMPARSER_H

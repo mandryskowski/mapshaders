@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#define MAPSHADERS_SHARED_EXPORTS 1
+
 #if defined(_WIN32)
 #  define MAPSHADERS_COMPILER_DLLEXPORT __declspec(dllexport)
 #  define MAPSHADERS_COMPILER_DLLIMPORT __declspec(dllimport)

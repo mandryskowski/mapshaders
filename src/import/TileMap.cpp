@@ -2,7 +2,7 @@
 
 using namespace godot;
 
-godot::Vector2i TileMap::get_tile_geo(godot::Vector2 coords_vec2) {
+godot::Vector2i TileMapBase::get_tile_geo(godot::Vector2 coords_vec2) {
     return this->get_tile_geo(GeoCoords::from_vector2_representation(coords_vec2));
 }
 

@@ -12,6 +12,8 @@ class SGImport : public godot::Node
 {
     GDCLASS(SGImport, godot::Node);
 
+public:
+
     void set_geo_map(godot::Ref<GeoMap> _geomap) {
         this->geomap = _geomap;
     }
@@ -19,10 +21,15 @@ class SGImport : public godot::Node
         return geomap;
     }
 
-    godot::Array get_parsers() {
+    godot::TypedArray<Parser> get_parsers() {
         return parsers;
     }
-    void set_parsers(godot::Array _parsers) {
+    void set_parsers(godot::TypedArray<Parser> _parsers) {
+        for (int i = 0; i < _parsers.size(); i++) {
+            Parser* parser = Object::cast_to<Parser>(_parsers[i]);
+            if (parser)
+                parser->set_shader_nodes_reference(this);
+        }
         parsers = _parsers;
     }
 
@@ -35,6 +42,12 @@ class SGImport : public godot::Node
 
     bool get_true() {
         return true;
+    }
+
+    virtual void _enter_tree() override {
+        Node::_enter_tree();
+
+        set_parsers(parsers);
     }
 
 public:

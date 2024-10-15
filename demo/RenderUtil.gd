@@ -80,14 +80,14 @@ static func polygon_triangles(triangles : PackedVector3Array, height = 0.0, norm
 	return arrays
 		
 static func pyramid(verts : PackedVector3Array, height : float = 0.0, min_height : float = 0.0) -> Array:
-		var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL])
+		var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TEX_UV])
 		
 		var min_height_vec = Vector3(0, min_height, 0)
 		
 		var tip = get_middle_of_polygon(verts)
 		tip.y += height + min_height
 		
-		
+		var uv_x_length_so_far : float = 0.0
 		
 		for i in verts.size():
 			var v1 = verts[i]
@@ -96,6 +96,13 @@ static func pyramid(verts : PackedVector3Array, height : float = 0.0, min_height
 			var normal = -(v2 - v1).cross(tip - v1).normalized()
 			arrays[Mesh.ARRAY_VERTEX].append_array([v1 + min_height_vec, v2 + min_height_vec, tip])
 			arrays[Mesh.ARRAY_NORMAL].append_array([normal, normal, normal])
+			
+			# UV
+			var edge_length : float = (v2 - v1).length()
+			var triangle_height : float = ((v1 + v2) / 2.0).distance_to(tip)
+			arrays[Mesh.ARRAY_TEX_UV].append_array([Vector2(uv_x_length_so_far, 0.0), Vector2(uv_x_length_so_far + edge_length, 0.0), Vector2(uv_x_length_so_far + edge_length / 2.0, triangle_height)])
+			
+			uv_x_length_so_far += edge_length
 		
 		return arrays
 
@@ -134,7 +141,7 @@ static func skillion(verts : PackedVector3Array, height : float = 0.0, min_heigh
 	
 	return arrays
 	
-static func turn_hipped_skeleton_into_gabled(subtrees):
+static func turn_hipped_skeleton_into_gabled(subtrees):		
 	var subtree_map = {}
 	for subtree in subtrees:
 		subtree_map[subtree.source] = subtree
@@ -258,11 +265,24 @@ static func hipped(verts : PackedVector3Array, height : float = 0.0, min_height 
 			
 	return arrays
 	
+### Appends rhs mesh arrays to lhs.
+static func combine_mesh_arrays(lhs : Array, rhs : Array):
+	if len(lhs) != len(rhs):
+		print("Zjebalo sie", len(lhs), len(rhs))
+	assert (len(lhs) == len(rhs))
+	for i in range(len(lhs)):
+		if lhs[i] != null and rhs[i] != null:
+			lhs[i] += rhs[i]
+	return
 	
-static func achild(parent, node, name):
+static func achild(parent, node, name, deferred = false):
 	node.name = name
-	parent.add_child (node, true)
-	node.set_owner(parent.get_tree().edited_scene_root)
+	if deferred:
+		parent.call_deferred("add_child", node, true)
+		node.call_deferred("set_owner", parent.get_tree().edited_scene_root)
+	else:
+		parent.add_child (node, true)
+		node.set_owner(parent.get_tree().edited_scene_root)
 	return node
 	
 static func wall_poly(parent, name, nodes, color, half_thickness, min_height, max_height):
@@ -279,35 +299,55 @@ static func wall_poly(parent, name, nodes, color, half_thickness, min_height, ma
 	poly.material.albedo_color = color
 	poly.polygon = PackedVector2Array([Vector2(-half_thickness, min_height), Vector2(-half_thickness, max_height), Vector2(half_thickness, max_height), Vector2(half_thickness, min_height)])
 
-static func wall_poly_np(parent, name, nodes, color, min_height, max_height):
+static func wall_poly_np(nodes, min_height, max_height):
+	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TEX_UV])
 	if nodes.size() < 3:
-		return
-
-	var arrays = get_array_mesh_arrays([Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL])
+		return arrays
+		
+	var uv_x_length_so_far : float = 0.0
+	
 	for i in nodes.size() - 1:
 		var v_this = nodes[i]
 		var v_next = nodes[i+1]
 		
-		# Triangle 1
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, v_this.y + min_height, v_this.z))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, v_next.y + min_height, v_next.z))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, v_next.y + max_height, v_next.z))
+		var this_verts : PackedVector3Array = [
+			# Triangle 1
+			Vector3(v_this.x, v_this.y + min_height, v_this.z),
+			Vector3(v_next.x, v_next.y + min_height, v_next.z),
+			Vector3(v_next.x, v_next.y + max_height, v_next.z),
+
+			# Triangle 2
+			Vector3(v_this.x, v_this.y + min_height, v_this.z),
+			Vector3(v_next.x, v_next.y + max_height, v_next.z),
+			Vector3(v_this.x, v_this.y + max_height, v_this.z)
+		]
+		var this_verts_uv_x = [
+			# Triangle 1
+			0, 1, 1,
+			# Triangle 2
+			0, 1, 0
+		]
 		
-		# Triangle 2
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, v_this.y + min_height, v_this.z))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_next.x, v_next.y + max_height, v_next.z))
-		arrays[Mesh.ARRAY_VERTEX].append(Vector3(v_this.x, v_this.y + max_height, v_this.z))
+		arrays[Mesh.ARRAY_VERTEX] += this_verts
 		
 		var normal = Vector3(v_next.x - v_this.x, 0, v_next.z - v_this.z).cross(-Vector3.UP)
 		
 		# Each vertex has the same normal
 		for j in range(6):
 			arrays[Mesh.ARRAY_NORMAL].append(normal)
+			
+		# UV: Keep track of uv x length. Use height coordinate for uv y.
+		var edge_length = (v_next - v_this).length()
 		
-	area_poly(parent, name, arrays, color)
+		for j in range(len(this_verts)):
+			arrays[Mesh.ARRAY_TEX_UV].append(Vector2(uv_x_length_so_far + this_verts_uv_x[j] * edge_length, this_verts[j].y))
+			
+		uv_x_length_so_far += edge_length
+		
+	return arrays
 
-static func area_poly(parent, name, arrays, color = Color.WHITE):
-	var area = achild(parent, MeshInstance3D.new(), name)
+static func area_poly(parent, name, arrays, color = Color.WHITE, deferred = false):
+	var area = achild(parent, MeshInstance3D.new(), name, deferred)
 	area.mesh = ArrayMesh.new()
 	if !arrays.is_empty():
 		area.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)

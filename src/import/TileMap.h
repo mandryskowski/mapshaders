@@ -3,11 +3,11 @@
 #include <godot_cpp/classes/resource.hpp>
 #include "GeoMap.h"
 
-class TileMap : public godot::Resource {
-    GDCLASS(TileMap, godot::Resource);
+class TileMapBase : public godot::Resource {
+    GDCLASS(TileMapBase, godot::Resource);
 
 public:
-    TileMap(bool use_geo = false) : use_geo(use_geo) {}
+    TileMapBase(bool use_geo = false) : use_geo(use_geo) {}
 
     /** 
      * Turn a coordinate in geo space into a tile coordinate.
@@ -26,7 +26,7 @@ public:
     virtual godot::TypedArray<godot::Vector2i> get_tiles_of_interest(GeoCoords coords, double elevation, godot::Vector3 front_vec) = 0;
 
 
-    virtual ~TileMap() {}
+    virtual ~TileMapBase() {}
 
 protected:
     static void _bind_methods() {}
@@ -36,11 +36,11 @@ private:
     bool use_geo;
 };
 
-class EquirectangularTileMap : public TileMap {
-    GDCLASS(EquirectangularTileMap, TileMap);
+class EquirectangularTileMap : public TileMapBase {
+    GDCLASS(EquirectangularTileMap, TileMapBase);
 
 public:
-    EquirectangularTileMap(bool use_geo = false) : TileMap(use_geo), tile_size(1000.0, 1000.0) {}
+    EquirectangularTileMap(bool use_geo = false) : TileMapBase(use_geo), tile_size(1000.0, 1000.0) {}
 
     virtual godot::Vector2i get_tile_geo(GeoCoords) override;
 

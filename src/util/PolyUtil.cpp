@@ -110,6 +110,7 @@ PackedVector2Array PolyUtil::triangulate_with_holes(PackedVector2Array outer, Ar
 }
 
 Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
+    //std::cout << "Running straight skeleton with outer size: " << outer.size() << " hole count: " << holes.size() << std::endl;
     std::vector<polyskel::Vec2> polyskel_outer;
     std::vector<std::vector<polyskel::Vec2>> polyskel_holes;
     for (const Vector2& v : outer) {
@@ -123,7 +124,7 @@ Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
         }
     }
 
-    auto result = polyskel::skeletonize(polyskel_outer, polyskel_holes);
+    std::vector<std::shared_ptr<polyskel::Subtree>> result = polyskel::skeletonize(polyskel_outer, polyskel_holes);
 
     Array out;
 
@@ -132,9 +133,11 @@ Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
         ss->set_source(Vector2(subtree->source.x, subtree->source.y));
         ss->set_height(subtree->height);
         PackedVector2Array sinks;
+
         for (const auto& sink : subtree->sinks) {
             sinks.append(Vector2(sink.x, sink.y));
         }
+
         ss->set_sinks(sinks);
         out.push_back(ss);
     }

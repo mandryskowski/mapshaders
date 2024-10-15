@@ -3,7 +3,6 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-#include <iostream>
 #include <godot_cpp/core/error_macros.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
@@ -257,9 +256,9 @@ double bilinearInterpolation(const ElevationGrid& grid, const GeoCoords& point) 
 void printGrid(const std::vector<std::vector<double>>& grid) {
     for (const auto& row : grid) {
         for (const auto& value : row) {
-            std::cout << value << " ";
+            //std::cout << value << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
     }
 }
 

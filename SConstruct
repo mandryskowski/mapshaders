@@ -14,7 +14,8 @@ env = SConscript("godot-cpp/SConstruct")
 
 dirs = ['import', 'import/osm_parser', 'util']
 
-env.Append(CPPPATH=["src/"], CXXFLAGS=['-fexceptions'])
+#env.Append(CPPPATH=["src/"], CXXFLAGS=['-fexceptions'])
+env.Append(CPPPATH=["src/"], CXXFLAGS=['-IGNORE_CLOSURE_COMPILER_ERRORS'])
 sources = Glob("*src/*.cpp")
 sources.extend(Glob("src/**/*.cpp"))
 sources.extend(Glob("src/import/osm_parser/*.cpp"))
@@ -27,7 +28,7 @@ sources.extend(Glob("src/import/coastline/*.cpp"))
 #sources.extend(Glob("src/poly2tri/poly2tri/common/*.cc"))
 sources = [source for source in sources if not "polyskel-cpp-port" in str(source)]
 
-env.Append(LIBPATH=["src/poly2tri/build/", "src/poly2tri/build/Release", "src/polyskel-cpp-port/build/", "src/polyskel-cpp-port/build/Release"])
+env.Append(LIBPATH=["src/poly2tri/build/", "src/poly2tri/build/Release", "src/poly2tri/buildweb/", "src/polyskel-cpp-port/build/", "src/polyskel-cpp-port/build/Release", "src/polyskel-cpp-port/buildweb/"])
 env.Append(LIBS=["poly2tri", "polyskel"])
 
 for x in sources:

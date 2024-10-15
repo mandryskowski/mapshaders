@@ -42,3 +42,4 @@ demo/maps/*
 __pycache__/*
 .sconsign.dblite
 *.os
+demo/bin/*

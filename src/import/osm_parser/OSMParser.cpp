@@ -3,13 +3,17 @@
 #include <godot_cpp/templates/list.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <thread>
+
+#define MIN_INT 1 << 31
+#define MAX_INT ~(1 << 31)
 
 using namespace godot;
 
 godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap> heightmap) {
     ParserInfo pi;
     pi.geomap = geomap;
-    pi.tilemap = godot::Ref<TileMap>(memnew(EquirectangularTileMap));
+    pi.tilemap = godot::Ref<TileMapBase>(memnew(EquirectangularTileMap));
     pi.heightmap = heightmap;
     pi.parser.open(filename);
 
@@ -25,9 +29,14 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
             pi.reqs.merge(req);
     }
 
+    int print_line = 0;
     while (pi.parser.read() == 0) {
         XMLParser::NodeType cur_node_type = pi.parser.get_node_type();
         bool xml_node_finished = false;
+        if (print_line + 100000 < pi.parser.get_current_line()) {
+            print_line = pi.parser.get_current_line();
+            //std::cout << pi.parser.get_current_line() << std::endl;
+        }
         if (cur_node_type == XMLParser::NodeType::NODE_ELEMENT)
             xml_node_finished = parse_xml_node(pi);
         else if (cur_node_type == XMLParser::NodeType::NODE_ELEMENT_END)
@@ -48,45 +57,66 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
         Object::cast_to<Node>(shader_nodes[i])->call("import_finished");
     }
 
-    Ref<FileAccess> out = FileAccess::open("res://parsed.sgdmap", FileAccess::WRITE);
+    Ref<FileAccess> out = FileAccess::open(filename.replace(".osm", ".sgdmap"), FileAccess::WRITE);
     PackedInt64Array tile_offs, tile_lens;
 
+    // Tile space rect
+    Vector2i min_tile(MAX_INT, MAX_INT), max_tile(MIN_INT, MIN_INT);
+
     for (int i = 0; i < pi.tile_bytes.size(); i++) {
+        if (static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x == MIN_INT || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y == MIN_INT || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x == 0 || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y == 0)
+            continue;
         WARN_PRINT(String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x) + " " + String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
+        min_tile = Vector2i(std::min(min_tile.x, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x), std::min(min_tile.y, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
+        max_tile = Vector2i(std::max(max_tile.x, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x), std::max(max_tile.y, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
+    }
+    WARN_PRINT("Tile space rect: " + String::num_int64(min_tile.x) + " " + String::num_int64(min_tile.y) + " " + String::num_int64(max_tile.x) + " " + String::num_int64(max_tile.y));
+
+    Vector2i tile_space_size = max_tile - min_tile + Vector2i(1, 1);
+    if (tile_space_size.x > 100 || tile_space_size.y > 100) {
+        WARN_PRINT("Tile space bounds too large: " + String::num_int64(tile_space_size.x) + " " + String::num_int64(tile_space_size.y));
+        return pi.geomap;
     }
     // We will store tile offsets at the beginning
-    /*
-    tile_offs.resize (5 * 5);
-    tile_lens.resize (5 * 5);
+    
+    tile_offs.resize (tile_space_size.x * tile_space_size.y);
+    tile_lens.resize (tile_space_size.x * tile_space_size.y);
     out->store_var (tile_offs);
     out->store_var (tile_lens);
 
-    for (int i = 0; i < 5 * 5; i++) {
-        const_cast<int64_t&>(tile_offs[i]) = out->get_position();
-        Vector<Ref<FileAccessMemoryResizable>>& tile_fas = const_cast<Vector<Ref<FileAccessMemoryResizable>>&>(pi.tile_bytes[i]);
+    for (int y = 0; y < tile_space_size.y; y++) {
+        for (int x = 0; x < tile_space_size.x; x++) {
+            const Vector2i tile = min_tile + Vector2i(x, y);
+            const int i = y * tile_space_size.x + x;
+            if (!pi.tile_bytes.has(tile))
+                continue;
 
-        for (int j = 0; j < shader_nodes.size(); j++) {
-            Ref<FileAccessMemoryResizable>& fa = const_cast<Ref<FileAccessMemoryResizable>&>(tile_fas[j]);
+            const_cast<int64_t&>(tile_offs[i]) = out->get_position();
+            auto tile_fas = static_cast<Array>(pi.tile_bytes[tile]);
 
-            size_t len = fa->get_position();
-            fa->seek(0);
-            PackedByteArray arr = fa->get_data_array();
+            for (int j = 0; j < shader_nodes.size(); j++) {
+                Ref<FileAccessMemoryResizable> fa = static_cast<Ref<FileAccessMemoryResizable>>(tile_fas[j]);
 
-            if (arr.size() != len)
-                WARN_PRINT("Bug in OSMParser::import: buffer length mismatch.");
+                size_t len = fa->get_position();
+                fa->seek(0);
+                PackedByteArray arr = fa->get_data_array();
 
-            // Empty flag
-            out->store_8 (len == 0 ? 1 : 0);
-            // Contents
-            out->store_buffer (arr);
+                if (arr.size() != len)
+                    WARN_PRINT("Bug in OSMParser::import: buffer length mismatch.");
+
+                // Empty flag
+                out->store_8 (len == 0 ? 1 : 0);
+                // Contents
+                out->store_buffer (arr);
+            }
+            const_cast<int64_t&>(tile_lens[i]) = out->get_position() - tile_offs[i];
         }
-        const_cast<int64_t&>(tile_lens[i]) = out->get_position() - tile_offs[i];
     }
     
     // Overwrite tile offsets at the beginning
     out->seek(0);
     out->store_var (tile_offs);
-    out->store_var (tile_lens);*/
+    out->store_var (tile_lens);
     return pi.geomap;
 }
 
@@ -187,7 +217,6 @@ double lerp(double a, double b, double t) {
 }
 
 void OSMParser::parse_bounds(ParserInfo & pi) {
-    const int grid_size = 5;
     auto shader_nodes = this->get_shader_nodes();
     
     if (pi.geomap.is_null()) {
@@ -223,7 +252,7 @@ Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi,
         const Array& nodes = static_cast<Array>(element["nodes"]);
         if (nodes.is_empty()) {
             ERR_PRINT_ED("Way " + static_cast<String>(element.get("id", "<invalid_id>")) + " has no nodes.");
-            return Vector2(1 << 31, 1 << 31);
+            return Vector2(MIN_INT, MIN_INT);
         }
 
         return get_element_tile("node", pi, pi.world.nodes[nodes[0]]);
@@ -233,7 +262,7 @@ Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi,
         
         if (members.is_empty()) {
             ERR_PRINT_ED("Relation " + static_cast<String>(element.get("id", "<invalid_id>")) + " has no members.");
-            return Vector2(1 << 31, 1 << 31);
+            return Vector2(MIN_INT, MIN_INT);
         }
 
         for (int i = 0; i < members.size(); i++) {
@@ -247,12 +276,12 @@ Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi,
     }
 
     ERR_PRINT_ED("Invalid " + element_type + " " + static_cast<String>(element.get("id", "<invalid_id>")) + ".");
-    return Vector2(1 << 31, 1 << 31);
+    return Vector2(MIN_INT, MIN_INT);
 }
 
 
 void OSMParser::load_tile(unsigned int index) {
-    Ref<FileAccess> fa = FileAccess::open("res://parsed.sgdmap", FileAccess::READ);
+    Ref<FileAccess> fa = FileAccess::open(filename.replace(".osm", ".sgdmap"), FileAccess::READ);
     PackedInt64Array tile_offs, tile_lens;
 
     tile_offs = fa->get_var();
@@ -279,9 +308,22 @@ void OSMParser::load_tile(unsigned int index) {
 }
 
 void OSMParser::load_tiles(bool) {
-    for (int i = 0; i < 5 * 5; i++) {
-        load_tile (i);
+    
+    Ref<FileAccess> fa = FileAccess::open(filename.replace(".osm", ".sgdmap"), FileAccess::READ);
+    PackedInt64Array tile_offs = fa->get_var();
+
+    
+    std::vector<std::thread*> threads;
+    for (int i = 0; i < tile_offs.size(); i++) {
+        threads.push_back(new std::thread(&OSMParser::load_tile, this, i));
     }
+    
+   /* for (auto &thread : threads) {
+        thread->join();
+    }
+
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    WARN_PRINT("Loaded tiles in " + String::num_int64(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()) + "[ms]"); */
 }
 
 void OSMParser::_bind_methods() {
@@ -292,6 +334,13 @@ void OSMParser::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_tiles", "plsrefactor"), &OSMParser::load_tiles);
     ClassDB::bind_method(D_METHOD("get_true"), &OSMParser::get_true);
 
+    ClassDB::bind_method(D_METHOD("set_test_index_to_load", "value"), &OSMParser::set_test_index_to_load);
+    ClassDB::bind_method(D_METHOD("get_test_index_to_load"), &OSMParser::get_test_index_to_load);
+    ClassDB::bind_method(D_METHOD("load_tile_test"), &OSMParser::load_tile_test);
+
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "filename", PROPERTY_HINT_FILE, "*.osm"), "set_filename", "get_filename");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "load_all_tiles"), "load_tiles", "get_true");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "test_index_to_load"), "set_test_index_to_load", "get_test_index_to_load");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "load_tile_test"), "load_tile_test", "get_true");
+
 }

@@ -1,6 +1,5 @@
 #include "CoastlineParser.h"
 #include <fstream>
-#include <iostream>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
@@ -122,8 +121,8 @@ TypedArray<Array> readShapefile(const std::string& shpFileName, const std::strin
             auto [x, y] = readShapefilePoint(shpFile, format);
 
             if (x >= queryXMin && x <= queryXMax && y >= queryYMin && y <= queryYMax) {
-                std::cout << "Point Record #" << recordHeader.recordNumber 
-                          << ": (" << x << ", " << y << ")" << std::endl;
+                //std::cout << "Point Record #" << recordHeader.recordNumber 
+                //          << ": (" << x << ", " << y << ")" << std::endl;
             }
         } else if (shapeType == 5) { // Polygon (for example)
             auto [shapeXMin, shapeYMin] = readShapefilePoint(shpFile, format);
@@ -174,7 +173,7 @@ TypedArray<Array> readShapefile(const std::string& shpFileName, const std::strin
                 polygons.append(polygon);
             }
         } else {
-	    std::cout << "Shape type " << shapeType << " intersects with query box." << std::endl;
+	    //std::cout << "Shape type " << shapeType << " intersects with query box." << std::endl;
 	}
     }
 
