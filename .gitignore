@@ -38,6 +38,7 @@ libpath
 demo/maps/*
 
 # IDE/Compilation
+build/*
 .vscode/*
 __pycache__/*
 .sconsign.dblite

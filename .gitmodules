@@ -9,3 +9,6 @@
 	path = src/polyskel-cpp-port
 	url = https://github.com/mandryskowski/polyskel-cpp-port.git
 	
+[submodule "src/poly2tri-mapshaders"]
+	path = src/poly2tri-mapshaders
+	url = https://github.com/mandryskowski/poly2tri-mapshaders
