@@ -96,7 +96,7 @@ TypedArray<Array> readShapefile(const std::string& shpFileName, const std::strin
     swapEndian(header.fileLength);
 
     // Read through the .shx file to find relevant records
-    shxFile.seekg(100, std::ios::beg); // Skip the header
+    shxFile.seekg(100u); // Skip the header
     while (shxFile) {
         int32_t offset, contentLength;
         shxFile.read(reinterpret_cast<char*>(&offset), sizeof(offset));
@@ -107,7 +107,7 @@ TypedArray<Array> readShapefile(const std::string& shpFileName, const std::strin
         swapEndian(offset);
         swapEndian(contentLength);
 
-        shpFile.seekg(offset * 2, std::ios::beg); // Offsets in .shx are in 16-bit words
+        shpFile.seekg(static_cast<unsigned int>(offset * 2)); // Offsets in .shx are in 16-bit words
 
         RecordHeader recordHeader;
         shpFile.read(reinterpret_cast<char*>(&recordHeader), sizeof(recordHeader));

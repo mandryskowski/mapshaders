@@ -21,10 +21,7 @@ void Parser::set_shader_nodes_paths(godot::TypedArray<godot::NodePath> nodes_pat
 
     for (int i = 0; i < nodes_paths.size(); i++) {
         shader_nodes.push_back(shader_nodes_reference->has_node(nodes_paths[i]) ? shader_nodes_reference->get_node<Node>(nodes_paths[i]) : nullptr);
-        std::cout << (void*)shader_nodes[i] << std::endl;
     }
-
-    std::cout << std::endl;
 }
 
 godot::TypedArray<godot::NodePath> Parser::get_shader_nodes_paths() const {

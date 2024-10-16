@@ -279,7 +279,6 @@ Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi,
     return Vector2(MIN_INT, MIN_INT);
 }
 
-
 void OSMParser::load_tile(unsigned int index) {
     Ref<FileAccess> fa = FileAccess::open(filename.replace(".osm", ".sgdmap"), FileAccess::READ);
     PackedInt64Array tile_offs, tile_lens;
@@ -289,13 +288,14 @@ void OSMParser::load_tile(unsigned int index) {
 
     if (tile_offs.size() != tile_lens.size())
         WARN_PRINT ("Tile offsets count different from tile lengths count");
-    
+
     if (tile_lens[index] == 0) {
         fa->close();
         return;
     }
 
     fa->seek (tile_offs[index]);
+
     auto shader_nodes_osm = this->get_shader_nodes();
     for (int i = 0; i < shader_nodes_osm.size(); i++) {
         WARN_PRINT("Tile " + String::num_int64(index) + " offset is " + String::num_int64(fa->get_position()));
@@ -307,23 +307,23 @@ void OSMParser::load_tile(unsigned int index) {
     fa->close();
 }
 
-void OSMParser::load_tiles(bool) {
-    
+void OSMParser::load_tiles(bool use_threading) {
     Ref<FileAccess> fa = FileAccess::open(filename.replace(".osm", ".sgdmap"), FileAccess::READ);
     PackedInt64Array tile_offs = fa->get_var();
 
+    if (!use_threading) {
+        for (int i = 0; i < tile_offs.size(); i++) {
+            load_tile(i);
+        }
+        return;
+    }
     
     std::vector<std::thread*> threads;
+    
     for (int i = 0; i < tile_offs.size(); i++) {
         threads.push_back(new std::thread(&OSMParser::load_tile, this, i));
     }
-    
-   /* for (auto &thread : threads) {
-        thread->join();
-    }
 
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    WARN_PRINT("Loaded tiles in " + String::num_int64(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()) + "[ms]"); */
 }
 
 void OSMParser::_bind_methods() {
