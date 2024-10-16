@@ -25,8 +25,22 @@
 *.la
 *.a
 *.lib
+*.exp
 
 # Executables
 *.exe
 *.out
 *.app
+
+libpath
+
+# Godot
+demo/maps/*
+
+# IDE/Compilation
+build/*
+.vscode/*
+__pycache__/*
+.sconsign.dblite
+*.os
+demo/bin/*
