@@ -66,6 +66,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
     for (int i = 0; i < pi.tile_bytes.size(); i++) {
         if (static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x == MIN_INT || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y == MIN_INT || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x == 0 || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y == 0)
             continue;
+            
         WARN_PRINT(String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x) + " " + String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
         min_tile = Vector2i(std::min(min_tile.x, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x), std::min(min_tile.y, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
         max_tile = Vector2i(std::max(max_tile.x, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x), std::max(max_tile.y, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
@@ -73,7 +74,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
     WARN_PRINT("Tile space rect: " + String::num_int64(min_tile.x) + " " + String::num_int64(min_tile.y) + " " + String::num_int64(max_tile.x) + " " + String::num_int64(max_tile.y));
 
     Vector2i tile_space_size = max_tile - min_tile + Vector2i(1, 1);
-    if (tile_space_size.x > 100 || tile_space_size.y > 100) {
+    if (tile_space_size.x > 500 || tile_space_size.y > 500) {
         WARN_PRINT("Tile space bounds too large: " + String::num_int64(tile_space_size.x) + " " + String::num_int64(tile_space_size.y));
         return pi.geomap;
     }

@@ -2,6 +2,7 @@
 extends Node
 
 @export var material : Material
+@export var add_seabed : bool
 
 
 func import_polygons_geo(polygons : Array, geomap : GeoMap):
@@ -26,10 +27,11 @@ func import_polygons_geo(polygons : Array, geomap : GeoMap):
 		var water = RenderUtil.area_poly(sea_area, "Water", RenderUtil.polygon_triangles(triangles_world, 0, normals))
 		water.mesh.surface_set_material(0, material)
 		
-		#var seabed = RenderUtil.achild(sea_area, MeshInstance3D.new(), "Seabed")
-		#seabed.mesh = water.mesh.duplicate()
-		#seabed.mesh.surface_set_material(0, load("res://assets/ground/ground.tres"))
-		#seabed.position.y -= 1
+		if add_seabed:
+			var seabed = RenderUtil.achild(sea_area, MeshInstance3D.new(), "Seabed")
+			seabed.mesh = water.mesh.duplicate()
+			seabed.mesh.surface_set_material(0, load("res://assets/ground/ground.tres"))
+			seabed.position.y -= 1
 		
 		
 		

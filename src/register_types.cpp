@@ -43,6 +43,7 @@ void initialize_mapshaders(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CoastlineParser>();
 
 	ClassDB::register_abstract_class<OSMHeightmap>();
+	ClassDB::register_class<ElevationHeightmap>();
 }
 void uninitialize_mapshaders(ModuleInitializationLevel p_level)
 {

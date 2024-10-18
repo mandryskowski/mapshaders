@@ -42,7 +42,7 @@ void SkeletonSubtree::_bind_methods() {
 }
 
 bool polygon_invalid_edges_check(const std::vector<p2t::Point*>& polygon) {
-    const double epsilon = 1e-12;
+    const double epsilon = 1e-16;
     for (int i = 0; i < polygon.size() - 1; i++) {
         int j = i + 1;
         if (std::abs(polygon[i]->x - polygon[j]->x) < epsilon && std::abs(polygon[i]->y - polygon[j]->y) < epsilon) {

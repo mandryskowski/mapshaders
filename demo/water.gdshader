@@ -120,7 +120,7 @@ void vertex()
 
 	
 	// Try to detect if the water is being rendered on a flat map or on a spherical map.
-	if (dot(vertex_input_normal, vec3(0.0, 1.0, 0.0)) > 0.999) {
+	if (dot(vertex_input_normal, vec3(0.0, 1.0, 0.0)) > 0.999 || true) {
 		UV = vertex.xz * sampler_scale;
 	}
 	else {

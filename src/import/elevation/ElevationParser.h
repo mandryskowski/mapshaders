@@ -17,6 +17,13 @@ public:
     void setTopLeftGeo(const GeoCoords& value);
     const GeoCoords& getTopLeftGeo() const;
 
+    void setTopLeftGeoVec(const godot::Vector2& value) {
+        topLeftGeo = GeoCoords::from_vector2_representation(value);
+    }
+    godot::Vector2 getTopLeftGeoVec() const {
+        return topLeftGeo.to_vector2_representation();
+    }
+
     void setCellsize(double value);
     double getCellsize() const;
 
@@ -39,7 +46,6 @@ public:
     }
 
     double bilinearInterpolation(const GeoCoords & coords) const;
-
 protected: 
     static void _bind_methods();
 
