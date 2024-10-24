@@ -107,7 +107,7 @@ void ElevationGrid::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_cellsize", "value"), &ElevationGrid::setCellsize);
     ClassDB::bind_method(D_METHOD("get_cellsize"), &ElevationGrid::getCellsize);
 
-    //ClassDB::bind_method(D_METHOD("set_heightmap", "value"), &ElevationGrid::setHeightmap);
+    ClassDB::bind_method(D_METHOD("set_heightmap", "value"), &ElevationGrid::setHeightmap);
     ClassDB::bind_method(D_METHOD("get_heightmap"), &ElevationGrid::getHeightmap);
 
     ClassDB::bind_method(D_METHOD("set_nodata_value", "value"), &ElevationGrid::setNodataValue);
@@ -118,13 +118,13 @@ void ElevationGrid::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_top_left_world"), &ElevationGrid::getTopLeftWorld);
     ClassDB::bind_method(D_METHOD("get_top_right_world"), &ElevationGrid::getTopRightWorld);
 
-
-
+    ClassDB::bind_method(D_METHOD("set_top_left_geo", "value"), &ElevationGrid::setTopLeftGeoVec);
+    ClassDB::bind_method(D_METHOD("get_top_left_geo"), &ElevationGrid::getTopLeftGeoVec);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "ncols"), "set_ncols", "get_ncols");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "nrows"), "set_nrows", "get_nrows");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cellsize"), "set_cellsize", "get_cellsize");
-    //ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heightmap"), "set_heightmap", "get_heightmap");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heightmap"), "set_heightmap", "get_heightmap");
     //ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "heightmap", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::PACKED_FLOAT64_ARRAY)), "set_heightmap", "get_heightmap");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "nodata_value"), "set_nodata_value", "get_nodata_value");
 }

@@ -4,7 +4,7 @@ render_mode depth_draw_always;
 
 void vertex() {
     VERTEX.z += 0.001;
-  
+
 }
 
 //void light() {

@@ -8,7 +8,7 @@ Copyright (c) 2019 UnionBytes, Achim Menzel (alias AiYori)
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
--- UnionBytes 
+-- UnionBytes
 -- YouTube: www.youtube.com/user/UnionBytes
 */
 
@@ -59,7 +59,7 @@ varying vec3 	vertex_tangent;									// Vertex tangent -> Needed for refraction
 
 varying mat4 	inv_mvp; 										// Inverse ModelViewProjection matrix -> Needed for caustic projection
 
- 
+
 // Wave function:
 vec4 wave(vec4 parameter, vec2 position, float time, inout vec3 tangent, inout vec3 binormal)
 {
@@ -71,7 +71,7 @@ vec4 wave(vec4 parameter, vec2 position, float time, inout vec3 tangent, inout v
 	vec2	d				 = normalize(parameter.xy);
 	float 	f 				 = k * (dot(d, position) - c * time);
 	float 	a				 = wave_steepness / k;
-	
+
 			tangent			+= normalize(vec3(1.0-d.x * d.x * (wave_steepness * sin(f)), d.x * (wave_steepness * cos(f)), -d.x * d.y * (wave_steepness * sin(f))));
 			binormal		+= normalize(vec3(-d.x * d.y * (wave_steepness * sin(f)), d.y * (wave_steepness * cos(f)), 1.0-d.y * d.y * (wave_steepness * sin(f))));
 
@@ -94,14 +94,14 @@ vec2 spherical_uv(vec3 vertex_position)
 void vertex()
 {
 	float	time			 = TIME * wave_speed;
-	
+
 	vec4	vertex			 = vec4(VERTEX, 1.0);
 	vec3	vertex_position  = (MODEL_MATRIX * vertex).xyz;
-	vec3    vertex_input_normal = vertex_normal;
-	
+	vec3    vertex_input_normal = NORMAL;
+
 	vec3 tang = vec3(0.0, 0.0, 0.0);
 	vec3 bin = vec3(0.0, 0.0, 0.0);
-	
+
 	vertex 			+= wave(wave_a, vertex_position.xz, time, tang, bin);
 	vertex 			+= wave(wave_b, vertex_position.xz, time, tang, bin);
 	vertex 			+= wave(wave_c, vertex_position.xz, time, tang, bin);
@@ -118,9 +118,9 @@ void vertex()
 	vertex_normal	 = normalize(cross(vertex_binormal, vertex_tangent));
 	//NORMAL			 = vertex_normal;
 
-	
+
 	// Try to detect if the water is being rendered on a flat map or on a spherical map.
-	if (dot(vertex_input_normal, vec3(0.0, 1.0, 0.0)) > 0.999) {
+	if (dot(vertex_input_normal, vec3(0.0, 1.0, 0.0)) > 0.999 || true) {
 		UV = vertex.xz * sampler_scale;
 	}
 	else {
@@ -128,7 +128,7 @@ void vertex()
 	}
 
 	//VERTEX			 = vertex.xyz;
-	
+
 	inv_mvp = inverse(PROJECTION_MATRIX * MODELVIEW_MATRIX);
 }
 
@@ -141,35 +141,35 @@ void fragment()
 	vec2 	uv_sampler_uv 				 = UV * uv_sampler_scale + uv_offset;
 	vec2	uv_sampler_uv_offset 		 = uv_sampler_strength * texture(uv_sampler, uv_sampler_uv).rg * 2.0 - 1.0;
 	vec2 	uv 							 = UV + uv_sampler_uv_offset;
-	
+
 	// Normalmap:
 	vec3 	normalmap					 = texture(normalmap_a_sampler, uv - uv_offset*2.0).rgb * 0.75;		// 75 % sampler A
 			normalmap 					+= texture(normalmap_b_sampler, uv + uv_offset).rgb * 0.25;			// 25 % sampler B
-	
+
 	// Refraction UV:
 	vec3	ref_normalmap				 = normalmap * 2.0 - 1.0;
 			ref_normalmap				 = normalize(vertex_tangent*ref_normalmap.x + vertex_binormal*ref_normalmap.y + vertex_normal*ref_normalmap.z);
 	vec2 	ref_uv						 = SCREEN_UV + (ref_normalmap.xy * refraction) / vertex_height;
-	
+
 	// Ground depth:
 	float 	depth_raw					 = texture(DEPTH_TEXTURE, ref_uv).r;
 	float	depth						 = PROJECTION_MATRIX[3][2] / (depth_raw + PROJECTION_MATRIX[2][2]);
-			
+
 	float 	depth_blend 				 = exp((depth+VERTEX.z + depth_offset) * -beers_law);
-			depth_blend 				 = clamp(1.0-depth_blend, 0.0, 1.0);	
+			depth_blend 				 = clamp(1.0-depth_blend, 0.0, 1.0);
 	float	depth_blend_pow				 = clamp(pow(depth_blend, 2.5), 0.0, 1.0);
 
 	// Ground color:
 	vec3 	screen_color 				 = textureLod(SCREEN_TEXTURE, ref_uv, depth_blend_pow * 2.5).rgb;
-	
+
 	vec3 	dye_color 					 = mix(color_shallow.rgb, color_deep.rgb, depth_blend_pow);
 	vec3	color 						 = mix(screen_color*dye_color, dye_color*0.25, depth_blend_pow*0.5);
-	
+
 	// Caustic screen projection
 	vec4 	caustic_screenPos 			 = vec4(ref_uv*2.0-1.0, depth_raw, 1.0);
 	vec4 	caustic_localPos 			 = inv_mvp * caustic_screenPos;
 			caustic_localPos			 = vec4(caustic_localPos.xyz/caustic_localPos.w, caustic_localPos.w);
-	
+
 	vec2 	caustic_Uv 					 = caustic_localPos.xz / vec2(1024.0) + 0.5;
 	vec4	caustic_color				 = texture(caustic_sampler, vec3(caustic_Uv*300.0, mod(TIME*14.0, 16.0)));
 
@@ -182,7 +182,7 @@ void fragment()
 		float foam_mix = clamp(pow((1.0-(depth + VERTEX.z) + foam_noise), 3.0) * foam_noise, 0.0, 1.0);
 		color = mix(color, vec3(1.0), foam_mix);
 	}
-	
+
 	// Set all values:
 	ALBEDO = color;
 	METALLIC = 0.1;

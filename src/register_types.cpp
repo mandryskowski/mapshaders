@@ -15,11 +15,15 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
+#include <iostream>
+
 using namespace godot;
 
 void initialize_mapshaders(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
 		return;
+
+	WARN_PRINT_ED("Registering MapShaders types.");
 
 	ClassDB::register_class<SGImport>();
 
@@ -43,6 +47,7 @@ void initialize_mapshaders(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CoastlineParser>();
 
 	ClassDB::register_abstract_class<OSMHeightmap>();
+	ClassDB::register_class<ElevationHeightmap>();
 }
 void uninitialize_mapshaders(ModuleInitializationLevel p_level)
 {
@@ -54,6 +59,8 @@ extern "C" {
 // Initialization.
 GDExtensionBool GDE_EXPORT mapshaders_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
 	godot::GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
+
+	std::cout << "MapShaders init!";
 
 	init_obj.register_initializer(initialize_mapshaders);
 	init_obj.register_terminator(uninitialize_mapshaders);

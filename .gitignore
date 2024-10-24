@@ -39,8 +39,10 @@ demo/maps/*
 
 # IDE/Compilation
 build/*
+buildweb/*
 .vscode/*
 __pycache__/*
 .sconsign.dblite
 *.os
-demo/bin/*
+demo/mapshaders/*
+demo/export/*

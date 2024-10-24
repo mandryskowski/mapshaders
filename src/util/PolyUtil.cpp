@@ -1,11 +1,11 @@
 #include "PolyUtil.h"
 #define P2T_STATIC_EXPORTS
-#include "../poly2tri/poly2tri/poly2tri.h"
-#include "../poly2tri/poly2tri/sweep/cdt.h"
-#include "../poly2tri/poly2tri/common/utils.h"
-#include "../polyskel-cpp-port/polyskel.h"
-#include "../polyskel-cpp-port/vec.h"
-#include "../polyskel-cpp-port/lavertex.h"
+#include "../../extern/poly2tri/poly2tri/poly2tri.h"
+#include "../../extern/poly2tri/poly2tri/sweep/cdt.h"
+#include "../../extern/poly2tri/poly2tri/common/utils.h"
+#include "../../extern/polyskel-cpp-port/polyskel.h"
+#include "../../extern/polyskel-cpp-port/vec.h"
+#include "../../extern/polyskel-cpp-port/lavertex.h"
 
 using namespace godot;
 
@@ -42,7 +42,7 @@ void SkeletonSubtree::_bind_methods() {
 }
 
 bool polygon_invalid_edges_check(const std::vector<p2t::Point*>& polygon) {
-    const double epsilon = 1e-12;
+    const double epsilon = 1e-16;
     for (int i = 0; i < polygon.size() - 1; i++) {
         int j = i + 1;
         if (std::abs(polygon[i]->x - polygon[j]->x) < epsilon && std::abs(polygon[i]->y - polygon[j]->y) < epsilon) {

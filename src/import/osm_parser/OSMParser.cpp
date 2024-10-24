@@ -3,6 +3,7 @@
 #include <godot_cpp/templates/list.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/stream_peer_buffer.hpp>
 #include <thread>
 
 #define MIN_INT 1 << 31
@@ -12,10 +13,11 @@ using namespace godot;
 
 godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHeightmap> heightmap) {
     ParserInfo pi;
+
     pi.geomap = geomap;
     pi.tilemap = godot::Ref<TileMapBase>(memnew(EquirectangularTileMap));
     pi.heightmap = heightmap;
-    pi.parser.open(filename);
+    pi.parser->open(filename);
 
     auto shader_nodes = this->get_shader_nodes();
 
@@ -26,16 +28,16 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
     for (int i = 0; i < shader_nodes.size(); i++) {
         Variant req = Object::cast_to<Node>(shader_nodes[i])->call("get_globals");
         if (req.get_type() != Variant::Type::NIL)
-            pi.reqs.merge(req);
+            pi.reqs->merge(req);
     }
 
     int print_line = 0;
-    while (pi.parser.read() == 0) {
-        XMLParser::NodeType cur_node_type = pi.parser.get_node_type();
+    while (pi.parser->read() == 0) {
+        XMLParser::NodeType cur_node_type = pi.parser->get_node_type();
         bool xml_node_finished = false;
-        if (print_line + 100000 < pi.parser.get_current_line()) {
-            print_line = pi.parser.get_current_line();
-            //std::cout << pi.parser.get_current_line() << std::endl;
+        if (print_line + 100000 < pi.parser->get_current_line()) {
+            print_line = pi.parser->get_current_line();
+            //std::cout << pi.parser->get_current_line() << std::endl;
         }
         if (cur_node_type == XMLParser::NodeType::NODE_ELEMENT)
             xml_node_finished = parse_xml_node(pi);
@@ -48,7 +50,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
 
     //_ASSERT(pi.xml_stack.is_empty());
     
-    //pi.parser.close();
+    //pi.parser->close();
     WARN_PRINT("Imported " + String::num_int64(pi.world.nodes.size()) + " nodes; " + 
                 String::num_int64(pi.world.ways.size()) + " ways; " +
                 String::num_int64(pi.world.relations.size()) + " relations.");
@@ -66,6 +68,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
     for (int i = 0; i < pi.tile_bytes.size(); i++) {
         if (static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x == MIN_INT || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y == MIN_INT || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x == 0 || static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y == 0)
             continue;
+            
         WARN_PRINT(String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x) + " " + String::num_int64(static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
         min_tile = Vector2i(std::min(min_tile.x, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x), std::min(min_tile.y, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
         max_tile = Vector2i(std::max(max_tile.x, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).x), std::max(max_tile.y, static_cast<Vector2i>(pi.tile_bytes.keys()[i]).y));
@@ -73,7 +76,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
     WARN_PRINT("Tile space rect: " + String::num_int64(min_tile.x) + " " + String::num_int64(min_tile.y) + " " + String::num_int64(max_tile.x) + " " + String::num_int64(max_tile.y));
 
     Vector2i tile_space_size = max_tile - min_tile + Vector2i(1, 1);
-    if (tile_space_size.x > 100 || tile_space_size.y > 100) {
+    if (tile_space_size.x > 500 || tile_space_size.y > 500) {
         WARN_PRINT("Tile space bounds too large: " + String::num_int64(tile_space_size.x) + " " + String::num_int64(tile_space_size.y));
         return pi.geomap;
     }
@@ -95,7 +98,7 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
             auto tile_fas = static_cast<Array>(pi.tile_bytes[tile]);
 
             for (int j = 0; j < shader_nodes.size(); j++) {
-                Ref<FileAccessMemoryResizable> fa = static_cast<Ref<FileAccessMemoryResizable>>(tile_fas[j]);
+                Ref<StreamPeerBuffer> fa = static_cast<Ref<StreamPeerBuffer>>(tile_fas[j]);
 
                 size_t len = fa->get_position();
                 fa->seek(0);
@@ -121,19 +124,17 @@ godot::Ref<GeoMap> OSMParser::import(godot::Ref<GeoMap> geomap, godot::Ref<OSMHe
 }
 
 bool OSMParser::parse_xml_node(ParserInfo &pi) {
-    XMLParser& parser = pi.parser;
-    const bool pop_node = parser.is_empty();
+    const bool pop_node = pi.parser->is_empty();
     pi.xml_stack.push_back(Dictionary());
     Dictionary d = static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 1]);
-    const String element_type = parser.get_node_name();
+    const String element_type = pi.parser->get_node_name();
     d["element_type"] = element_type;
 
-    if (parser.has_attribute("id"))
+    if (pi.parser->has_attribute("id"))
     {
-        d["id"]  = parser.get_named_attribute_value("id").to_int();
+        d["id"]  = pi.parser->get_named_attribute_value("id").to_int();
     }
     
-
 
     if (element_type == "bounds")
         parse_bounds(pi);
@@ -148,18 +149,18 @@ bool OSMParser::parse_xml_node(ParserInfo &pi) {
     else if (element_type == "member")
     {
         Dictionary member_d;
-        member_d["id"] = parser.get_named_attribute_value("ref").to_int();
-        member_d["role"] = parser.get_named_attribute_value("role");
-        member_d["type"] = parser.get_named_attribute_value("type");
+        member_d["id"] = pi.parser->get_named_attribute_value("ref").to_int();
+        member_d["role"] = pi.parser->get_named_attribute_value("role");
+        member_d["type"] = pi.parser->get_named_attribute_value("type");
         static_cast<Array>(static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])["members"]).push_back(member_d);
     }
     else if (element_type == "nd")
     {
-        static_cast<Array>(static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])["nodes"]).push_back(parser.get_named_attribute_value("ref").to_int());
+        static_cast<Array>(static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])["nodes"]).push_back(pi.parser->get_named_attribute_value("ref").to_int());
     }
     else if (element_type == "tag")
     {
-        static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])[parser.get_named_attribute_value("k")] = parser.get_named_attribute_value("v");
+        static_cast<Dictionary>(pi.xml_stack[pi.xml_stack.size() - 2])[pi.parser->get_named_attribute_value("k")] = pi.parser->get_named_attribute_value("v");
     }
     
     
@@ -182,7 +183,7 @@ void OSMParser::parse_xml_node_end(ParserInfo &pi) {
     if (!pi.tile_bytes.has(tile)) {
         Array fas;
         for (int j = 0; j < shader_nodes.size(); j++) {
-            fas.append(memnew(FileAccessMemoryResizable));
+            fas.append(memnew(StreamPeerBuffer));
         }
         pi.tile_bytes[tile] = fas;
     }
@@ -222,20 +223,20 @@ void OSMParser::parse_bounds(ParserInfo & pi) {
     if (pi.geomap.is_null()) {
         pi.geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(
         GeoCoords(
-        Longitude::degrees(pi.parser.get_named_attribute_value("minlon").to_float()),
-        Latitude::degrees(pi.parser.get_named_attribute_value("minlat").to_float())),
+        Longitude::degrees(pi.parser->get_named_attribute_value("minlon").to_float()),
+        Latitude::degrees(pi.parser->get_named_attribute_value("minlat").to_float())),
         
         GeoCoords(
-        Longitude::degrees(pi.parser.get_named_attribute_value("maxlon").to_float()),
-        Latitude::degrees(pi.parser.get_named_attribute_value("maxlat").to_float())))));
+        Longitude::degrees(pi.parser->get_named_attribute_value("maxlon").to_float()),
+        Latitude::degrees(pi.parser->get_named_attribute_value("maxlat").to_float())))));
     }
 
     pi.tile_bytes.clear();
 }
 
 void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
-    GeoCoords coords(Longitude::degrees(pi.parser.get_named_attribute_value("lon").to_float()),
-                     Latitude::degrees(pi.parser.get_named_attribute_value("lat").to_float()));
+    GeoCoords coords(Longitude::degrees(pi.parser->get_named_attribute_value("lon").to_float()),
+                     Latitude::degrees(pi.parser->get_named_attribute_value("lat").to_float()));
     Vector3 pos = pi.geomap->geo_to_world(coords);
     Vector3 up = pi.geomap->geo_to_world_up(coords);
 

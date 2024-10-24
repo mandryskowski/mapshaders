@@ -135,7 +135,7 @@ struct GeoCoords {
      *        Please avoid storing geographical coordinates in Vector2 as it is less readable.
      */
     godot::Vector2 to_vector2_representation() const {
-        return godot::Vector2(lon.get_radians(), lat.get_radians());
+        return godot::Vector2(static_cast<real_t>(lon.get_radians()), static_cast<real_t>(lat.get_radians()));
     }
 
     /**
@@ -153,7 +153,7 @@ public:
 
     /* Converts Earth space coordinates into World space. */
     MAPSHADERS_DLL_SYMBOL godot::Vector3 geo_to_world (GeoCoords coords) {
-        return geo_to_world_impl(coords) * scale_factor;
+        return geo_to_world_impl(coords) * static_cast<real_t>(scale_factor);
     }
     MAPSHADERS_DLL_SYMBOL godot::Vector3 geo_to_world (godot::Vector2 vec) {
         return geo_to_world(GeoCoords::from_vector2_representation(vec));
@@ -167,8 +167,8 @@ public:
 
 
     /* Optional scale factor for your convenience if you're not using 1 unit = 1 m. */
-    void set_scale_factor(double scale_factor) {
-        this->scale_factor = scale_factor;
+    void set_scale_factor(double factor) {
+        this->scale_factor = factor;
     }
     double get_scale_factor() const {
         return scale_factor;
