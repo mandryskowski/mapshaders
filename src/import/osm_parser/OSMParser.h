@@ -1,7 +1,6 @@
 #ifndef OSMPARSER_H
 #define OSMPARSER_H
 #include "../GeoMap.h"
-#include "../FileAccessMemoryResizable.h"
 #include "../Parser.h"
 #include "../../util/GlobalRequirements.h"
 #include "OSMHeightmap.h"
@@ -56,15 +55,15 @@ protected:
 
 private:
     struct ParserInfo {
-        godot::XMLParser parser;
+        godot::Ref<godot::XMLParser> parser;
         godot::TypedArray<godot::Dictionary> xml_stack;
-        GlobalRequirements reqs;
+        godot::Ref<GlobalRequirements> reqs;
         godot::Ref<GeoMap> geomap;
         godot::Ref<TileMapBase> tilemap;
         godot::Ref<OSMHeightmap> heightmap;
-        godot::Dictionary tile_bytes; // Vector2 -> Array of Ref<FileAccessMemoryResizable>
+        godot::Dictionary tile_bytes; // Vector2 -> Array of Ref<StreamPeerBuffer>
         World world;
-        ParserInfo() : geomap(nullptr) {}
+        ParserInfo() : parser(memnew(godot::XMLParser)), geomap(nullptr), tilemap(nullptr), heightmap(nullptr) {}
     };
     /* Returns true if this is the deepest node (if we have to pop). */
     bool parse_xml_node(ParserInfo&);

@@ -40,8 +40,8 @@ double longitude_to_flat_distance(Longitude lon, Latitude avg_latitude) {
     return LATITUDE_DEGREE_IN_METRES * cos(avg_latitude.value) * (lon.value * 180.0 / Math_PI);
 }
 Vector2 geocoords_to_flat_distance(GeoCoords coords, Latitude avg_latitude) {
-    return Vector2(longitude_to_flat_distance(coords.lon, avg_latitude) / UNIT_IN_METRES,
-                   latitude_to_flat_distance(coords.lat) / UNIT_IN_METRES);
+    return Vector2(static_cast<real_t>(longitude_to_flat_distance(coords.lon, avg_latitude) / UNIT_IN_METRES),
+                   static_cast<real_t>(latitude_to_flat_distance(coords.lat) / UNIT_IN_METRES));
 }
 
 Vector3 EquirectangularGeoMap::geo_to_world_impl(GeoCoords coords) {

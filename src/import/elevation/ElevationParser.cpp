@@ -121,7 +121,6 @@ void ElevationGrid::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_top_left_geo", "value"), &ElevationGrid::setTopLeftGeoVec);
     ClassDB::bind_method(D_METHOD("get_top_left_geo"), &ElevationGrid::getTopLeftGeoVec);
 
-
     ADD_PROPERTY(PropertyInfo(Variant::INT, "ncols"), "set_ncols", "get_ncols");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "nrows"), "set_nrows", "get_nrows");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cellsize"), "set_cellsize", "get_cellsize");

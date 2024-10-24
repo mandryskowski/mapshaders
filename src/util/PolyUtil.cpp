@@ -1,11 +1,11 @@
 #include "PolyUtil.h"
 #define P2T_STATIC_EXPORTS
-#include "../poly2tri/poly2tri/poly2tri.h"
-#include "../poly2tri/poly2tri/sweep/cdt.h"
-#include "../poly2tri/poly2tri/common/utils.h"
-#include "../polyskel-cpp-port/polyskel.h"
-#include "../polyskel-cpp-port/vec.h"
-#include "../polyskel-cpp-port/lavertex.h"
+#include "../../extern/poly2tri/poly2tri/poly2tri.h"
+#include "../../extern/poly2tri/poly2tri/sweep/cdt.h"
+#include "../../extern/poly2tri/poly2tri/common/utils.h"
+#include "../../extern/polyskel-cpp-port/polyskel.h"
+#include "../../extern/polyskel-cpp-port/vec.h"
+#include "../../extern/polyskel-cpp-port/lavertex.h"
 
 using namespace godot;
 

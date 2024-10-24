@@ -4,7 +4,6 @@
 #include "../GeoMap.h"
 #include "../elevation/ElevationParser.h"
 #include <godot_cpp/classes/ref.hpp>
-#include <memory>
 
 class OSMHeightmap : public godot::RefCounted {
     GDCLASS(OSMHeightmap, godot::RefCounted);

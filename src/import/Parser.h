@@ -26,7 +26,6 @@ public:
     }
 
     void set_shader_nodes_reference(godot::Node* node) {
-        godot::Node *prev = shader_nodes_reference;
         shader_nodes_reference = node;
         if (shader_nodes_reference) {
             set_shader_nodes_paths(shader_nodes_stored_paths);
