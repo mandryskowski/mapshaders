@@ -73,9 +73,8 @@ endif()
 
 # Set correct flags for MSVC runtime
 if (WIN32)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-      COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
-    )
+    set_property(TARGET ${PROJECT_NAME} PROPERTY
+                 MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 
