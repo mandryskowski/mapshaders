@@ -62,12 +62,20 @@ get_target_property(LIBRARY_SUFFIX godot-cpp LIBRARY_SUFFIX)
 add_subdirectory(src)
 message(" Mapshaders sources are ${MAPSHADERS_SOURCES}")
 
-# Create our library
+### Create our library ###
+# Executable for web, shared library for everything else
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     add_executable(${PROJECT_NAME} ${MAPSHADERS_SOURCES} ${MAPSHADERS_HEADERS})
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".wasm" OUTPUT_NAME "${PROJECT_NAME}")
 else()
     add_library(${PROJECT_NAME} SHARED ${MAPSHADERS_SOURCES} ${MAPSHADERS_HEADERS})
+endif()
+
+# Set correct flags for MSVC runtime
+if (WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+      COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
+    )
 endif()
 
 
