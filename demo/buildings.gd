@@ -15,6 +15,7 @@ enum RoofType
 	GABLED
 }
 
+
 func get_required_globals():
 	return GlobalRequirementsBuilder.new().withNodeRequirement("pos").build()
 
@@ -50,6 +51,7 @@ func import_way(osm_dict : Dictionary, fa : StreamPeer):
 			continue
 		path.push_back(node_pos[node_id])
 		
+	RenderUtil.enforce_winding(path)
 	tile_info[fa].push_back(RenderUtil.building_info(osm_dict, path))
 
 func import_finished():

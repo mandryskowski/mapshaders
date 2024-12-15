@@ -6,6 +6,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include "Util.h"
+#include "../import/GeoMap.h"
 
 class SkeletonSubtree : public godot::RefCounted {
     GDCLASS(SkeletonSubtree, godot::RefCounted);
@@ -29,6 +30,7 @@ class PolyUtil : public godot::RefCounted
     GDCLASS(PolyUtil, godot::RefCounted);
 public:
     MAPSHADERS_DLL_SYMBOL godot::PackedVector2Array triangulate_with_holes(godot::PackedVector2Array outer, godot::Array holes);
+    MAPSHADERS_DLL_SYMBOL std::vector<GeoCoords> triangulate_with_holes(std::vector<GeoCoords> outer, std::vector<std::vector<GeoCoords>> holes);
     MAPSHADERS_DLL_SYMBOL godot::Array straight_skeleton(godot::PackedVector2Array outer, godot::Array holes);
 protected:
     static void _bind_methods();

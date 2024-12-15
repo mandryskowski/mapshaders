@@ -20,7 +20,7 @@ static func get_middle_of_polygon(verts : PackedVector3Array):
 			
 		return mid / verts.size()
 			
-static func enforce_winding(verts, clockwise = true):
+static func enforce_winding(verts, clockwise = true, others = []):
 		#if normal.dot((verts[1] - verts[0]).cross(verts[2] - verts[0])) > 0.0:
 		#	verts.reverse()
 		var mid = get_middle_of_polygon(verts)
@@ -31,6 +31,8 @@ static func enforce_winding(verts, clockwise = true):
 			winding_val += (next.x - this.x) * (next.z + this.z)
 		if (clockwise and winding_val > 0.0) or (not clockwise and winding_val < 0.0):
 			verts.reverse()
+			for other in others:
+				other.reverse()
 			
 static func geo_polygon_to_world(verts_geo : PackedVector2Array, geomap : GeoMap) -> PackedVector3Array:
 	var verts_world : PackedVector3Array
@@ -379,7 +381,7 @@ static func osm_to_gd_color(code : String):
 
 static func building_info(osm_d : Dictionary, nodes : PackedVector3Array):
 	var d = {"name" : osm_d.get("name", str(osm_d["id"])), "nodes": nodes,
-			 "max_height": osm_d.get("height", "3").to_float(),
+			 "max_height": osm_d.get("height", "6").to_float(),
 			 "min_height": osm_d.get("min_height", "0").to_float(),
 			 "color": osm_to_gd_color(osm_d.get("building:colour", "white")),
 			 "roof_type": get_roof_type(osm_d.get("roof:shape", "flat"))}
@@ -392,12 +394,7 @@ static func building_info(osm_d : Dictionary, nodes : PackedVector3Array):
 		d["roof_dir"] = osm_d["roof:direction"].to_float()
 		
 	apply_defaults(d, osm_d)
-	
-	var label_d = osm_d
-	label_d.erase("nodes")
-	label_d.erase("element_type")
-	label_d.erase("id")
-	d["dupa"] = str(label_d)
+
 	return d
 
 static func apply_defaults(d, osm_d):

@@ -10,7 +10,7 @@ func import_begin():
 	ways = {}
 
 func import_node(osm_dict : Dictionary, fa : StreamPeer):
-	node_pos[osm_dict["id"]] = osm_dict["pos"]
+	node_pos[osm_dict["id"]] = osm_dict["pos_geo"]
 
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
 	if (!tile_info.has("fa")):
@@ -23,6 +23,7 @@ func import_relation(osm_dict : Dictionary, fa : StreamPeer):
 	if (osm_dict["id"] == 106417):
 		return
 	if (osm_dict["id"] == 15697701 or true):
+		
 		var outer = []
 		var inners = []
 		for member in osm_dict["members"]:
@@ -47,9 +48,11 @@ func import_relation(osm_dict : Dictionary, fa : StreamPeer):
 			tile_info[fa]["rels"] = []
 		var outd : Dictionary = {}
 		print("Triangulating", osm_dict['id'])
-		outd["rooftris"] = pu.triangulate_with_holes(outer, inners)
-		outd["outer"] = outer
-		outd["inners"] = inners
+		outd["rooftris"] = RenderUtil.geo_polygon_to_world(pu.triangulate_with_holes(outer, inners), self.get_parent().geo_map)
+		outd["outer"] = RenderUtil.geo_polygon_to_world(outer, self.get_parent().geo_map)
+		outd["inners"] = []
+		for inner in inners:
+			outd["inners"].append(RenderUtil.geo_polygon_to_world(inner, self.get_parent().geo_map))
 		outd["name"] = osm_dict.get("name", str(osm_dict["id"]))
 		if (osm_dict.has("height")):
 			outd["max_height"] = osm_dict["height"]

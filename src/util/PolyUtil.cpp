@@ -109,6 +109,62 @@ PackedVector2Array PolyUtil::triangulate_with_holes(PackedVector2Array outer, Ar
     return triangulated;
 }
 
+MAPSHADERS_DLL_SYMBOL std::vector<GeoCoords> PolyUtil::triangulate_with_holes(
+    std::vector<GeoCoords> outer, std::vector<std::vector<GeoCoords>> holes )
+{
+    std::vector<p2t::Point*> polyline;
+    polyline.reserve(outer.size());
+    for (const auto& v : outer)
+        polyline.push_back(new p2t::Point(v.lon.value, v.lat.value));
+
+    if (!polygon_invalid_edges_check(polyline))
+        return std::vector<GeoCoords>();
+
+    polyline.pop_back();
+    p2t::CDT* cdt = new p2t::CDT(polyline);
+
+    // Add holes
+    for (int i = 0; i < holes.size(); i++) {
+        const std::vector<GeoCoords>& hole = holes[i];
+        std::vector<p2t::Point*> polyline;
+        for (const auto& v : hole) {
+            polyline.push_back(new p2t::Point(v.lon.value, v.lat.value));
+        }
+        
+        if (!polygon_invalid_edges_check(polyline))
+            return std::vector<GeoCoords>();
+
+        polyline.pop_back();
+
+        cdt->AddHole(polyline);
+
+        for (p2t::Point* v : polyline) {
+           ;// delete v;
+        }
+    }
+
+
+    
+    cdt->Triangulate();
+
+    // Output
+    std::vector<GeoCoords> triangulated;
+
+    auto triangles = cdt->GetTriangles();
+    for (const auto& triangle : triangles) {
+        for (int i = 0; i < 3; i++) {
+            p2t::Point* p = triangle->GetPoint(i);
+            triangulated.push_back(GeoCoords(Longitude::radians(p->x), Latitude::radians(p->y)));
+        }
+    }
+
+    // Free
+    for (p2t::Point* v : polyline)
+        ;//delete v;
+
+    return triangulated;
+}
+
 Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
     //std::cout << "Running straight skeleton with outer size: " << outer.size() << " hole count: " << holes.size() << std::endl;
     std::vector<polyskel::Vec2> polyskel_outer;
@@ -146,6 +202,6 @@ Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
 }
 
 void PolyUtil::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("triangulate_with_holes", "outer", "holes"), &PolyUtil::triangulate_with_holes);
+    ClassDB::bind_method(D_METHOD("triangulate_with_holes", "outer", "holes"), (PackedVector2Array(PolyUtil::*)(PackedVector2Array, Array))&PolyUtil::triangulate_with_holes);
     ClassDB::bind_method(D_METHOD("straight_skeleton", "outer", "holes"), &PolyUtil::straight_skeleton);
 }

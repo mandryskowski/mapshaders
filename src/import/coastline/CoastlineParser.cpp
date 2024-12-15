@@ -155,18 +155,22 @@ TypedArray<Array> readShapefile(const std::string& shpFileName, const std::strin
                 //std::cout << "Polygon Record #" << recordHeader.recordNumber << " has " 
                 //        << numParts << " parts and " << numPoints << " points." << std::endl;
 
-                TypedArray<PackedVector2Array> polygon;
+                TypedArray<Array> polygon;
     
                 for (int i = 0; i < numParts; ++i) {
                     int start = parts[i];
                     int end = (i == numParts - 1) ? numPoints : parts[i + 1];
                     //std::cout << "  Part " << i + 1 << ":\n";
 
-                    PackedVector2Array part;
+                    PackedFloat64Array part_x, part_y;
                     for (int j = start; j < end; ++j) {
-                        part.append(GeoCoords(Longitude::degrees(points[j].first), Latitude::degrees(points[j].second)).to_vector2_representation());
+                        part_x.append(Longitude::degrees(points[j].first).get_radians());
+                        part_y.append(Latitude::degrees(points[j].second).get_radians());
                     }
 
+                    Array part;
+                    part.append(part_x);
+                    part.append(part_y);
                     polygon.append(part);
                 }
 
@@ -226,10 +230,11 @@ void CoastlineParser::import(godot::Ref<GeoMap> geomap)
             Array polygon_world;
 
             for (int j = 0; j < polygon.size(); j++) {
-                PackedVector2Array part = polygon[j];
+                Array part = polygon[j];
+                PackedFloat64Array part_x = part[0], part_y = part[1];
                 PackedVector3Array part_world;
-                for (int k = 0; k < part.size(); k++) {
-                    const Vector2 point = part[k];
+                for (int k = 0; k < part_x.size(); k++) {
+                    const Vector2 point(part_x[k], part_y[k]);
                     part_world.append(geomap->geo_to_world(GeoCoords::from_vector2_representation(point)));
                 }
 

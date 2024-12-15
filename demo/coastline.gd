@@ -11,7 +11,10 @@ func import_polygons_geo(polygons : Array, geomap : GeoMap):
 	var pu = PolyUtil.new()
 	print(len(polygons))
 	for poly : Array in polygons:
-		var outer = poly[0]
+		var outer_two_axes = poly[0]
+		var outer : PackedVector2Array
+		for i in range(len(outer_two_axes[0])):
+			outer.append(Vector2(outer_two_axes[0][i], outer_two_axes[1][i]))
 		var inners = poly.slice(1)
 		var triangles_geo = pu.triangulate_with_holes(outer, inners)
 		if not triangles_geo:

@@ -99,15 +99,19 @@ void vertex()
 	vec3	vertex_position  = (MODEL_MATRIX * vertex).xyz;
 	vec3    vertex_input_normal = NORMAL;
 
-	vec3 tang = vec3(0.0, 0.0, 0.0);
-	vec3 bin = vec3(0.0, 0.0, 0.0);
+	vec3 tang = vec3(1.0, 0.0, 0.0);
+	vec3 bin = vec3(0.0, 0.0, 1.0);
 
 	vertex 			+= wave(wave_a, vertex_position.xz, time, tang, bin);
 	vertex 			+= wave(wave_b, vertex_position.xz, time, tang, bin);
 	vertex 			+= wave(wave_c, vertex_position.xz, time, tang, bin);
 
-	vertex_tangent 	 = tang;
-	vertex_binormal  = bin;
+	//vertex_normal = vec3(0, -1, 0);
+	tang = vec3(1.0, 0.0, 0.0);
+	bin = vec3(0.0, 0.0, 1.0);
+
+	//vertex_tangent 	 = tang;
+	//vertex_binormal  = bin;
 
 	vertex_position  = vertex.xyz;
 
@@ -115,7 +119,7 @@ void vertex()
 
 	//TANGENT			 = vertex_tangent;
 	//BINORMAL		 = vertex_binormal;
-	vertex_normal	 = normalize(cross(vertex_binormal, vertex_tangent));
+	//vertex_normal	 = normalize(cross(vertex_binormal, vertex_tangent));
 	//NORMAL			 = vertex_normal;
 
 
@@ -153,6 +157,7 @@ void fragment()
 
 	// Ground depth:
 	float 	depth_raw					 = texture(DEPTH_TEXTURE, ref_uv).r;
+	depth_raw = 0.0;
 	float	depth						 = PROJECTION_MATRIX[3][2] / (depth_raw + PROJECTION_MATRIX[2][2]);
 
 	float 	depth_blend 				 = exp((depth+VERTEX.z + depth_offset) * -beers_law);

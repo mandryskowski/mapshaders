@@ -242,6 +242,8 @@ void OSMParser::parse_node(ParserInfo & pi, Dictionary& d) {
 
     d["pos"] = pos;
     d["pos_geo"] = coords.to_vector2_representation();
+    d["pos_geo_lon"] = coords.lon.value;
+    d["pos_geo_lat"] = coords.lat.value;
     d["up"] = up;
     d["pos_elevation"] = pi.heightmap.is_valid() ? pos + up * pi.heightmap->getElevation(coords) : pos;
 }
@@ -270,8 +272,8 @@ Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi,
             const String& type = static_cast<Dictionary>(members[i])["type"];
             if (type == "node") { 
                 return get_element_tile("node", pi, pi.world.nodes[members[i]]);
-            } else if (type == "way" && !pi.world.ways[members[i]].is_empty()) {
-                return get_element_tile("way", pi, pi.world.ways[members[i]]);
+            } else if (type == "way" && !pi.world.ways[static_cast<int64_t>(static_cast<Dictionary>(members[i])["id"])].is_empty()) {
+                return get_element_tile("way", pi, pi.world.ways[static_cast<int64_t>(static_cast<Dictionary>(members[i])["id"])]);
             }
         }
     }

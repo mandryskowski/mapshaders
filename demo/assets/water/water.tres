@@ -1,6 +1,10 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://0nxl5q0ihes7"]
+[gd_resource type="ShaderMaterial" load_steps=6 format=3 uid="uid://0nxl5q0ihes7"]
 
 [ext_resource type="Shader" path="res://water.gdshader" id="1_kpsi1"]
+[ext_resource type="CompressedTexture2DArray" uid="uid://dcvujep4v7k1b" path="res://assets/water/Caustic.png" id="2_2a5q0"]
+[ext_resource type="Texture2D" uid="uid://bfa4xeh5thwio" path="res://assets/water/Water_N_A.png" id="2_oqpjr"]
+[ext_resource type="Texture2D" uid="uid://dpwv0qf6tb7we" path="res://assets/water/Water_N_B.png" id="3_2a5q0"]
+[ext_resource type="Texture2D" uid="uid://ch1eb1v8e4utn" path="res://assets/water/Water_UV.png" id="4_biqab"]
 
 [resource]
 render_priority = 0
@@ -9,14 +13,18 @@ shader_parameter/wave_speed = 0.5
 shader_parameter/wave_a = Vector4(1, 1, 0.35, 3)
 shader_parameter/wave_b = Vector4(1, 0.6, 0.3, 1.55)
 shader_parameter/wave_c = Vector4(1, 1.3, 0.25, 0.9)
-shader_parameter/sampler_scale = Vector2(0.25, 0.25)
+shader_parameter/sampler_scale = Vector2(0.1, 0.1)
 shader_parameter/sampler_direction = Vector2(0.05, 0.04)
+shader_parameter/uv_sampler = ExtResource("4_biqab")
 shader_parameter/uv_sampler_scale = Vector2(0.25, 0.25)
-shader_parameter/uv_sampler_strength = 0.04
+shader_parameter/uv_sampler_strength = 0.72
+shader_parameter/normalmap_a_sampler = ExtResource("2_oqpjr")
+shader_parameter/normalmap_b_sampler = ExtResource("3_2a5q0")
 shader_parameter/foam_level = 0.5
 shader_parameter/refraction = 0.075
-shader_parameter/color_deep = null
-shader_parameter/color_shallow = null
+shader_parameter/color_deep = Color(1, 1, 1, 1)
+shader_parameter/color_shallow = Color(0, 0, 0, 1)
 shader_parameter/beers_law = 2.0
-shader_parameter/depth_offset = -0.75
+shader_parameter/depth_offset = 2.765
 shader_parameter/projector = null
+shader_parameter/caustic_sampler = ExtResource("2_2a5q0")

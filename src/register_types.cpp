@@ -11,6 +11,11 @@
 #include "util/PolyUtil.h"
 #include "util/GlobalRequirementsBuilder.h"
 
+#include "../worldshaders/osm/3D/TreesMulti.h"
+#include "../worldshaders/osm/3D/Areas.h"
+#include "../worldshaders/elevation/3D/HeightMap.h"
+#include "../worldshaders/coastline/3D/Coastline.h"
+
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
@@ -48,7 +53,15 @@ void initialize_mapshaders(ModuleInitializationLevel p_level) {
 
 	ClassDB::register_abstract_class<OSMHeightmap>();
 	ClassDB::register_class<ElevationHeightmap>();
+
+	ClassDB::register_class<TreesMulti>();
+	ClassDB::register_class<Areas>();
+
+	ClassDB::register_class<HeightMap>();
+
+	ClassDB::register_class<Coastline>();
 }
+
 void uninitialize_mapshaders(ModuleInitializationLevel p_level)
 {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)

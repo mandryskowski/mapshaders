@@ -60,7 +60,8 @@ get_target_property(LIBRARY_SUFFIX godot-cpp LIBRARY_SUFFIX)
 
 # Sources
 add_subdirectory(src)
-message(" Mapshaders sources are ${MAPSHADERS_SOURCES}")
+add_subdirectory(worldshaders)
+message("Mapshaders sources are ${MAPSHADERS_SOURCES}")
 
 # Create our library
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
