@@ -165,6 +165,62 @@ MAPSHADERS_DLL_SYMBOL std::vector<GeoCoords> PolyUtil::triangulate_with_holes(
     return triangulated;
 }
 
+MAPSHADERS_DLL_SYMBOL std::vector<std::pair<double, double>> PolyUtil::triangulate_with_holes(
+    std::vector<std::pair<double, double>> outer, std::vector<std::vector<std::pair<double, double>>> holes )
+{
+    std::vector<p2t::Point*> polyline;
+    polyline.reserve(outer.size());
+    for (const auto& v : outer)
+        polyline.push_back(new p2t::Point(v.first, v.second));
+
+    if (!polygon_invalid_edges_check(polyline))
+        return std::vector<std::pair<double, double>>();
+
+    polyline.pop_back();
+    p2t::CDT* cdt = new p2t::CDT(polyline);
+
+    // Add holes
+    for (int i = 0; i < holes.size(); i++) {
+        const std::vector<std::pair<double, double>>& hole = holes[i];
+        std::vector<p2t::Point*> polyline;
+        for (const auto& v : hole) {
+            polyline.push_back(new p2t::Point(v.first, v.second));
+        }
+        
+        if (!polygon_invalid_edges_check(polyline))
+            return std::vector<std::pair<double, double>>();
+
+        polyline.pop_back();
+
+        cdt->AddHole(polyline);
+
+        for (p2t::Point* v : polyline) {
+           ;// delete v;
+        }
+    }
+
+
+    
+    cdt->Triangulate();
+
+    // Output
+    std::vector<std::pair<double, double>> triangulated;
+
+    auto triangles = cdt->GetTriangles();
+    for (const auto& triangle : triangles) {
+        for (int i = 0; i < 3; i++) {
+            p2t::Point* p = triangle->GetPoint(i);
+            triangulated.push_back(std::make_pair(p->x, p->y));
+        }
+    }
+
+    // Free
+    for (p2t::Point* v : polyline)
+        ;//delete v;
+
+    return triangulated;
+}
+
 Array PolyUtil::straight_skeleton(PackedVector2Array outer, Array holes) {
     //std::cout << "Running straight skeleton with outer size: " << outer.size() << " hole count: " << holes.size() << std::endl;
     std::vector<polyskel::Vec2> polyskel_outer;

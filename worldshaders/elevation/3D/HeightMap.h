@@ -18,6 +18,12 @@ public:
     bool get_flat_shading() const {
         return flat_shading;
     }
+    void set_cliffs(bool cliffs) {
+        this->cliffs = cliffs;
+    }
+    bool get_cliffs() const {
+        return cliffs;
+    }
 protected:
     static void _bind_methods();
 
@@ -25,6 +31,7 @@ private:
     godot::Array coastline_polygons;
     GeoMap* coastline_geomap;
     bool flat_shading;
+    bool cliffs;
 };
 
 #endif // WORLDSHADERS_HEIGHTMAP_H

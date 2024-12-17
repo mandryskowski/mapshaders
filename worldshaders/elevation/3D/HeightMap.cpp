@@ -1,6 +1,7 @@
 #include "HeightMap.h"
 #include "../../common/3D/RenderUtil3D.h"
 #include "../../../../src/import/osm_parser/OSMHeightmap.h"
+#include "../../../src/util/PolyUtil.h"
 #include <godot_cpp/classes/geometry2d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/mesh.hpp>
@@ -8,11 +9,21 @@
 
 using namespace godot;
 
-void generate_full_rectangle(const GeoCoords cell_pos, double cellrad, ElevationGrid& grid, bool flat, Array& arrays, GeoMap* coastline_geomap);
-void generate_partial_rectangle(const GeoCoords cell_pos, double cellrad, PackedVector2Array& gridrectpoly, ElevationGrid& grid, bool flat, Array& arrays, GeoMap* coastline_geomap);
-void rasterizeLine(std::vector<std::vector<int>>& grid, double x1, double y1, double x2, double y2);
-void bfs(std::vector<std::vector<int>>& grid, int x, int y, int value);
+struct CellEdges {
+    std::vector<std::vector<std::pair<double, double>>> edges;
+    std::vector<std::vector<std::pair<double, double>>> fully_contained_edges;
+};
 
+template <typename T, typename U>
+struct std::hash<std::pair<T, U>> {
+public:
+        size_t operator()(std::pair<int, int> x) const throw() { return hash<T>()(x.first) ^ hash<U>()(x.second); }
+};
+
+void generate_full_rectangle(const GeoCoords cell_pos, double cellrad, ElevationGrid& grid, bool flat, Array& arrays, GeoMap* coastline_geomap);
+void generate_partial_rectangle(const std::pair<int, int>& col_row, const GeoCoords cell_pos, double cellrad, PackedVector2Array& gridrectpoly, ElevationGrid& grid, bool flat, Array& arrays, GeoMap* coastline_geomap, std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>>&);
+bool rasterizeLine(std::vector<std::vector<int>>& grid, double x1, double y1, double x2, double y2, std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>>& cell_edges, std::vector<std::pair<double, double>>*& this_edge, std::pair<int, int>& initial_cell, std::vector<std::pair<double, double>>&);
+void bfs(std::vector<std::vector<int>>& grid, int x, int y, int value);
 
 void HeightMap::import_polygons_geo(godot::Array polygons, GeoMap * geomap) {
     std::cout << "Imported coastline polygons\n";
@@ -20,8 +31,56 @@ void HeightMap::import_polygons_geo(godot::Array polygons, GeoMap * geomap) {
     coastline_geomap = geomap;
 }
 
+int pnpoly(int nvert, std::vector<std::pair<double, double>>& verts, double testx, double testy)
+{
+  int i, j, c = 0;
+  for (i = 0, j = nvert-1; i < nvert; j = i++) {
+    if ( ((verts[i].second>testy) != (verts[j].second>testy)) &&
+     (testx < (verts[j].first-verts[i].first) * (testy-verts[i].second) / (verts[j].second-verts[i].second) + verts[i].first) )
+       c = !c;
+  }
+  return c;
+}
+
+GeoCoords grid_to_geo(ElevationGrid& grid, const std::pair<double, double>& gridPos) {
+    auto cellrad = grid.getCellsize() / 180.0 * Math_PI;
+    return grid.getTopLeftGeo() + GeoCoords(Longitude::radians(cellrad * gridPos.first), Latitude::radians(-cellrad * gridPos.second));
+}
+
+void generate_coastline(std::vector<std::pair<double, double>>& poly, Array& arrays, GeoMap& coastline_geomap, ElevationGrid* grid, bool connect_last_to_first) {
+    std::cout << "Generating coastline " << poly.size() << " " << (connect_last_to_first ? "true" : "false") << std::endl;
+    PackedVector3Array poly3d, normals;
+    Ref<ElevationHeightmap> hmap = memnew(ElevationHeightmap);
+    hmap->set_elevation_grid(grid);
+
+    for (int k = 0; k < static_cast<int>(poly.size()) - (connect_last_to_first ? 0 : 1); k++) {
+
+        auto v1_geo = grid_to_geo(*grid, poly[k]);
+        auto v2_geo = grid_to_geo(*grid, poly[(k + 1) % poly.size()]);
+
+        auto v1_world = coastline_geomap.geo_to_world(v1_geo);
+        auto v2_world = coastline_geomap.geo_to_world(v2_geo);
+
+        // Rectangle that goes to 0
+        poly3d.push_back(v1_world + Vector3(0, hmap->getElevation(v1_geo), 0));
+        poly3d.push_back(v2_world + Vector3(0, hmap->getElevation(v2_geo), 0));
+        poly3d.push_back(v2_world);
+
+        poly3d.push_back(v2_world);
+        poly3d.push_back(v1_world);
+        poly3d.push_back(v1_world + Vector3(0, hmap->getElevation(v1_geo), 0));
+
+        auto normal = (v2_world - v1_world).cross(Vector3(0, 1, 0)).normalized();
+        for (int l = 0; l < 6; l++) {
+            normals.push_back(normal);
+        }
+    }
+    arrays[Mesh::ARRAY_VERTEX].call("append_array", poly3d);
+    arrays[Mesh::ARRAY_NORMAL].call("append_array", normals);
+}
+
+
 void HeightMap::import_grid(ElevationGrid *grid) {
-    std::cout << "Called import grid\n";
     auto children = get_children();
     for (int j = 0; j < children.size(); j++) {
         remove_child(Object::cast_to<Node>(children[j]));
@@ -30,6 +89,8 @@ void HeightMap::import_grid(ElevationGrid *grid) {
     auto left = cell_pos.lon;
     auto heights = grid->getHeightmap();
     std::vector<std::vector<int>> land_cells(grid->getNrows(), std::vector<int>(grid->getNcols(), 0));
+    std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>> coastline_cell_edges;
+    Array arrays = RenderUtil3D::get_array_mesh_arrays({Mesh::ARRAY_VERTEX, Mesh::ARRAY_NORMAL});
 
     // Grid rectangle
     auto cellrad = grid->getCellsize() / 180.0 * Math_PI;
@@ -41,11 +102,21 @@ void HeightMap::import_grid(ElevationGrid *grid) {
     // Create the grid poly
     PackedVector2Array xd;
 
+    auto wskaznik = Object::cast_to<Node3D>(RenderUtil3D::achild(this, memnew(Node3D), "Wskaznik"));
+    auto wskaznik2 = Object::cast_to<Node3D>(RenderUtil3D::achild(this, memnew(Node3D), "Wskaznik2"));
+    auto wskaznik3 = Object::cast_to<Node3D>(RenderUtil3D::achild(this, memnew(Node3D), "Wskaznik3"));
+
     std::cout << "Coastline polygons:\n";
     for (int i = 0; i < coastline_polygons.size(); i++) {
         Array poly = static_cast<Array>(coastline_polygons[i]);
         Array poly_segment = poly[0];
         PackedFloat64Array poly_segment_x = poly_segment[0];
+        if (i == 1) {
+            PackedFloat64Array poly_segment_y = poly_segment[1];
+            wskaznik->set_position(coastline_geomap->geo_to_world(GeoCoords(Longitude::radians(poly_segment_x[0]), Latitude::radians(poly_segment_y[0]))));
+            wskaznik2->set_position(coastline_geomap->geo_to_world(GeoCoords(Longitude::radians(poly_segment_x[1]), Latitude::radians(poly_segment_y[1]))));
+            wskaznik3->set_position(coastline_geomap->geo_to_world(GeoCoords(Longitude::radians(poly_segment_x[2]), Latitude::radians(poly_segment_y[2]))));
+        }
         std::cout << poly_segment_x.size() << std::endl;
     }
     
@@ -54,62 +125,60 @@ void HeightMap::import_grid(ElevationGrid *grid) {
         for (int j = 0; j < poly.size(); j++) {
             Array part = static_cast<Array>(poly[j]);
             PackedFloat64Array part_x = part[0], part_y = part[1];
+
+            DEV_ASSERT(part_x.size() == part_y.size());
+            DEV_ASSERT(!part_x.is_empty());
+            std::vector<std::pair<double, double>>* this_edge = nullptr;
+
+            // Initial edge will be incomplete, so we need to store it until we reach the last edge.
+            std::vector<std::pair<double, double>> initial_edge;
+            std::pair<int, int> initial_cell = {-1, -1};
+
+            // Coastline polyline
+            std::vector<std::pair<double, double>> coastline_polyline;
+            bool broken_coastline = false;
+            this_edge = &initial_edge;
             for (int k = 0; k < part_x.size(); k++) {
-                Vector2 v1(part_x[k], part_y[k]);
-                Vector2 v2(part_x[(k + 1) % part_x.size()], part_y[(k + 1) % part_y.size()]);
+                std::pair<double, double> v1(part_x[k], part_y[k]);
+                std::pair<double, double> v2(part_x[(k + 1) % part_x.size()], part_y[(k + 1) % part_y.size()]);
 
-                double v1_tile_x = (v1.x - grid->getTopLeftGeo().lon.get_radians()) / cellrad;
-                double v1_tile_y = -(v1.y - grid->getTopLeftGeo().lat.get_radians()) / cellrad;
-                double v2_tile_x = (v2.x - grid->getTopLeftGeo().lon.get_radians()) / cellrad;
-                double v2_tile_y = -(v2.y - grid->getTopLeftGeo().lat.get_radians()) / cellrad;
+                double v1_tile_x = (v1.first - grid->getTopLeftGeo().lon.get_radians()) / cellrad;
+                double v1_tile_y = -(v1.second - grid->getTopLeftGeo().lat.get_radians()) / cellrad;
+                double v2_tile_x = (v2.first - grid->getTopLeftGeo().lon.get_radians()) / cellrad;
+                double v2_tile_y = -(v2.second - grid->getTopLeftGeo().lat.get_radians()) / cellrad;
 
-                rasterizeLine(land_cells, v1_tile_x, v1_tile_y, v2_tile_x, v2_tile_y);
+                if (!rasterizeLine(land_cells, v1_tile_x, v1_tile_y, v2_tile_x, v2_tile_y, coastline_cell_edges, this_edge, initial_cell, coastline_polyline) && !coastline_polyline.empty() && cliffs) {
+                    generate_coastline(coastline_polyline, arrays, *coastline_geomap, grid, false);
+                    broken_coastline = true;
+                    coastline_polyline.clear();
+                }
             }
-        }
+
+            if (this_edge == &initial_edge) { // Fully contained edges
+                if (!coastline_cell_edges[initial_cell]) {
+                    coastline_cell_edges[initial_cell] = std::make_unique<CellEdges>();
+                }
+
+                coastline_cell_edges[initial_cell]->fully_contained_edges.push_back(initial_edge);
+            } else if (coastline_cell_edges[initial_cell] && this_edge == &coastline_cell_edges[initial_cell]->edges.back()) { // Assuming the coastline has made a full loop
+                DEV_ASSERT(initial_edge[0] == this_edge->back());
+                for (int k = 1; k < initial_edge.size(); k++) { // skip the first point, as it's the same as the last one
+                    this_edge->push_back(initial_edge[k]);
+                }
+            }
+
+            if (cliffs)
+                generate_coastline(coastline_polyline, arrays, *coastline_geomap, grid, !broken_coastline);
+
+            
+       }
     }
-
-    /*for (int y = 670; y < 680; y++) {
-        for (int x = 892; x < 922; x++) {
-            if (land_cells[y][x] == -1)
-                std::cout << ' ';
-            else
-                std::cout << land_cells[y][x];
-        }
-        std::cout << std::endl;
-    }*/
-
-
-    Array chosen_poly_parts = static_cast<Array>(coastline_polygons[0]);
-    Array chosen_poly_part = static_cast<Array>(chosen_poly_parts[0]);
-    PackedFloat64Array part_x = chosen_poly_part[0], part_y = chosen_poly_part[1];
-    for (int i = 0; i < part_x.size(); i++)
-        xd.append(Vector2(part_x[i] * 100.0, part_y[i] * 100.0));
-    for (int i = 0; i < gridrectpoly.size(); i++)
-        gridrectpoly[i] *= 100.0;
-
-    std::cout << "Xd size is " << xd.size() << std::endl;
-    
-    gridrectpoly = Geometry2D::get_singleton()->intersect_polygons(gridrectpoly, xd)[0];
-    for (int i = 0; i < xd.size(); i++)
-        xd[i] /= 100.0;
-    for (int i = 0; i < gridrectpoly.size(); i++)
-        gridrectpoly[i] /= 100.0;
-
-
-    PackedVector3Array gridrectpoly3d;
-    for (int i = 0; i < gridrectpoly.size(); i++) {
-        gridrectpoly3d.append(coastline_geomap->geo_to_world(GeoCoords::from_vector2_representation(gridrectpoly[i])));
-    }
-
-    RenderUtil3D::area_poly(this, "zupa", RenderUtil3D::polygon(gridrectpoly3d, 0));
 
     UtilityFunctions::print("Total rows ", grid->getNrows());
-    
-    Array arrays = RenderUtil3D::get_array_mesh_arrays({Mesh::ARRAY_VERTEX, Mesh::ARRAY_NORMAL});
 
     for (int row = 0; row < grid->getNrows() - 1; row++) {
         if (row % 20 == 0)
-            UtilityFunctions::print("Row ", row);
+            UtilityFunctions::print("Row ", row, " out of ", grid->getNrows());
         
         for (int col = 0; col < grid->getNcols() - 1; col++) {
             if (land_cells[row][col] == 0) {
@@ -121,14 +190,19 @@ void HeightMap::import_grid(ElevationGrid *grid) {
                         Array part = static_cast<Array>(parts[j]);
                         PackedFloat64Array part_x = part[0], part_y = part[1];
 
-                        PackedVector2Array part_poly;
+                        std::vector<std::pair<double, double>> part_poly;
                         for (int k = 0; k < part_x.size(); k++) {
-                            part_poly.append(Vector2(part_x[k] * 1000.0, part_y[k] * 1000.0));
+                            part_poly.push_back(std::make_pair(part_x[k], part_y[k]));
                         }
-                        if (Geometry2D::get_singleton()->is_point_in_polygon(cell_pos.to_vector2_representation() * 1000.0, part_poly)) {
+                        GeoCoords test_point = cell_pos + GeoCoords(Longitude::radians(cellrad / 2.0), Latitude::radians(-cellrad / 2.0));
+                        if (pnpoly(part_poly.size(), part_poly, test_point.lon.get_radians(), test_point.lat.get_radians())) {
                             sea_cell = j > 0; // If it's not the first part, it's a sea cell
                             found = true;
                         }
+                        //if (Geometry2D::get_singleton()->is_point_in_polygon((cell_pos + GeoCoords(Longitude::radians(cellrad / 2.0), Latitude::radians(-cellrad / 2.0))).to_vector2_representation() * 10000.0, part_poly)) {
+                        //     sea_cell = j > 0; // If it's not the first part, it's a sea cell
+                        //     found = true;
+                        // }
                     }
 
                     if (found)
@@ -139,7 +213,7 @@ void HeightMap::import_grid(ElevationGrid *grid) {
                 bfs(land_cells, col, row, sea_cell ? -1 : 2);
             }
             if (land_cells[row][col] == 1)
-                generate_partial_rectangle(cell_pos, cellrad, gridrectpoly, *grid, flat_shading, arrays, coastline_geomap);
+                generate_partial_rectangle({col, row}, cell_pos, cellrad, gridrectpoly, *grid, flat_shading, arrays, coastline_geomap, coastline_cell_edges);
             if (land_cells[row][col] == 2) {
                 generate_full_rectangle(cell_pos, cellrad, *grid, flat_shading, arrays, coastline_geomap);
             }
@@ -153,8 +227,6 @@ void HeightMap::import_grid(ElevationGrid *grid) {
         cell_pos.lat = cell_pos.lat - Latitude::radians(cellrad);
     }
 
-
-
     RenderUtil3D::area_poly(this, "GroundMesh", arrays, Color(0.745098, 0.745098, 0.745098));
     coastline_polygons = Array();
 }
@@ -165,7 +237,11 @@ void HeightMap::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_flat_shading", "flat"), &HeightMap::set_flat_shading);
     ClassDB::bind_method(D_METHOD("get_flat_shading"), &HeightMap::get_flat_shading);
 
+    ClassDB::bind_method(D_METHOD("set_cliffs", "cliffs"), &HeightMap::set_cliffs);
+    ClassDB::bind_method(D_METHOD("get_cliffs"), &HeightMap::get_cliffs);
+
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "flat_shading"), "set_flat_shading", "get_flat_shading");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "cliffs"), "set_cliffs", "get_cliffs");
 }
 
 Vector3 get_normal_from_heights(double L, double R, double B, double T) {
@@ -210,84 +286,186 @@ void generate_full_rectangle(const GeoCoords cell_pos, double cellrad, Elevation
     arrays[Mesh::ARRAY_NORMAL].call("append_array", normals);
 }
 
-void generate_partial_rectangle(const GeoCoords cell_pos, double cellrad, PackedVector2Array& gridrectpoly, ElevationGrid& grid, bool flat, Array& arrays, GeoMap* coastline_geomap) {
-    PackedVector2Array poly;
-    poly.push_back(cell_pos.to_vector2_representation());
-    poly.push_back((cell_pos + GeoCoords(Longitude::radians(cellrad), Latitude::radians(0))).to_vector2_representation());
-    poly.push_back((cell_pos + GeoCoords(Longitude::radians(cellrad), Latitude::radians(-cellrad))).to_vector2_representation());
-    poly.push_back((cell_pos + GeoCoords(Longitude::radians(0), Latitude::radians(-cellrad))).to_vector2_representation());
+struct CellCoastlineTip {
+    std::reference_wrapper<std::vector<std::pair<double, double>>> edges;
+    int index;
+    bool reverse;
+};
 
-    for (int i = 0; i < poly.size(); i++)
-        poly[i] *= 100.0;
-    for (int i = 0; i < gridrectpoly.size(); i++)
-        gridrectpoly[i] *= 100.0;
+void grid_space_polygon(ElevationGrid& grid, const std::vector<std::pair<double, double>>& poly, double cellrad, bool flat, Array& arrays, GeoMap* coastline_geomap, const GeoCoords& cell_pos) {
+    PackedVector3Array poly3d;
+    PackedVector3Array normals;
 
-    Array out_polys = Geometry2D::get_singleton()->intersect_polygons(poly, gridrectpoly);
+    Ref<ElevationHeightmap> hmap = memnew(ElevationHeightmap);
 
-    for (int i = 0; i < poly.size(); i++)
-        poly[i] /= 100.0;
-    for (int i = 0; i < gridrectpoly.size(); i++)
-        gridrectpoly[i] /= 100.0;
+    hmap->set_elevation_grid(&grid);
 
-    if (out_polys.size() == 0) {
+    Ref<PolyUtil> pu = memnew(PolyUtil);
+    auto triangulated = pu->triangulate_with_holes(poly, {});
+    
+    for (auto& point : triangulated) {
+
+        auto v_geo = cell_pos + GeoCoords(Longitude::radians(point.first * cellrad), Latitude::radians(-point.second * cellrad));
+        auto v_world = coastline_geomap->geo_to_world(v_geo);
+        poly3d.push_back(v_world + Vector3(0, hmap->getElevation(v_geo), 0)); 
+        if (flat) {
+            normals.push_back(Vector3(0, 1, 0));
+        } else {
+            normals.append(get_normal_from_pos(hmap.ptr(), v_geo, 0.1));
+        }
+    }
+
+    arrays[Mesh::ARRAY_VERTEX].call("append_array", poly3d);
+    arrays[Mesh::ARRAY_NORMAL].call("append_array", normals);
+}
+
+void generate_partial_rectangle(const std::pair<int, int>& col_row, const GeoCoords cell_pos, double cellrad, PackedVector2Array& gridrectpoly, ElevationGrid& grid, bool flat, Array& arrays, GeoMap* coastline_geomap, std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>>& cell_edges) {
+    if (!cell_edges[col_row]) {
+        std::cout << "Invalid cell " << col_row.first << " " << col_row.second << std::endl;
         return;
     }
-    for (int part = 0; part < out_polys.size(); part++) {
-        PackedVector2Array out = out_polys[part];
 
-        
-        for (int i = 0; i < out.size(); i++)
-            out[i] /= 100.0;
+    std::vector<std::vector<std::pair<double, double>>>& all_edges = cell_edges[col_row]->edges;
+    DEV_ASSERT(!(all_edges.empty() && cell_edges[col_row]->fully_contained_edges.empty()));
 
-        PackedVector3Array poly3d;
-        PackedVector3Array normals;
-        Ref<ElevationHeightmap> hmap = memnew(ElevationHeightmap);
-        hmap->set_elevation_grid(&grid);
+    std::vector<CellCoastlineTip> edges_left;
+    std::vector<CellCoastlineTip> edges_right;
+    std::vector<CellCoastlineTip> edges_top;
+    std::vector<CellCoastlineTip> edges_bottom;
 
-        PackedInt32Array triangulation_indices = Geometry2D::get_singleton()->triangulate_polygon(out);
-        for (int i = 0; i < triangulation_indices.size(); i++) {
-            auto v_geo = GeoCoords::from_vector2_representation(out[triangulation_indices[i]]);
-            auto v_world = coastline_geomap->geo_to_world(v_geo);
-            poly3d.push_back(v_world + Vector3(0, hmap->getElevation(v_geo), 0)); 
-            if (flat) {
-                normals.push_back(Vector3(0, 1, 0));
-            } else {
-                normals.append(get_normal_from_pos(hmap.ptr(), v_geo, 0.1));
+    for (int i = 0; i < all_edges.size(); i++) {
+        auto& edge = all_edges[i];
+        std::vector<std::pair<int, bool>> check = {{0, false}, {edge.size() - 1, true}};
+        for (auto [check_index, reverse] : check) {
+            CellCoastlineTip tip = {std::ref(edge), i, reverse};
+            auto& point = edge[check_index];
+            if (point.first == 0.0) {
+                edges_left.push_back(std::move(tip));
+            } else if (point.first == 1.0) {
+                edges_right.push_back(std::move(tip));
+            } else if (point.second == 0.0) {
+                edges_bottom.push_back(std::move(tip));
+            } else if (point.second == 1.0) {
+                edges_top.push_back(std::move(tip));
+            }
+            else {
+                std::cout << "Unreachable " << point.first << " " << point.second << std::endl;
+                return;
+                //DEV_ASSERT(false); // unreachable
+            }
+        }
+    }
+
+    // Sort edges
+    std::sort(edges_left.begin(), edges_left.end(), [](const auto& a, const auto& b) {
+        return a.edges.get()[a.reverse ? a.edges.get().size() - 1 : 0].second > b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].second;
+    });
+    std::sort(edges_right.begin(), edges_right.end(), [](const auto& a, const auto& b) {
+        return a.edges.get()[a.reverse ? a.edges.get().size() - 1 : 0].second < b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].second;
+    });
+    std::sort(edges_top.begin(), edges_top.end(), [](const auto& a, const auto& b) {
+        return a.edges.get()[a.reverse ? a.edges.get().size() - 1 : 0].first > b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].first;
+    });
+    std::sort(edges_bottom.begin(), edges_bottom.end(), [](const auto& a, const auto& b) {
+        return a.edges.get()[a.reverse ? a.edges.get().size() - 1 : 0].first < b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].first;
+    });
+    
+    std::vector<bool> visited(all_edges.size(), false);
+
+    for (int i = 0; i < all_edges.size(); i++) {
+        if (visited[i]) continue;
+
+        auto& this_edge = all_edges[i];
+        visited[i] = true;
+
+        std::vector<std::pair<double, double>> poly = this_edge;
+
+        std::pair<double, double> starting_point = poly[0];
+
+        while (true) {
+            CellCoastlineTip* next_tip = nullptr;
+            
+            if (poly.back().first == 0.0 && poly.back().second != 0.0) {
+                // Binary search to find the index before the current point
+
+                auto next_point = std::upper_bound(edges_left.begin(), edges_left.end(), poly.back(), [](const auto& a, const auto& b) {
+                    return a.second > b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].second;
+                });
+
+                if (next_point == edges_left.end()) {
+                    poly.push_back({0.0, 0.0});
+                    continue;
+                }
+
+                next_tip = &*(next_point);
+                
+            }
+            else if (poly.back().second == 1.0 && poly.back().first != 0.0) {
+                // Binary search to find the index before the current point
+
+                auto next_point = std::upper_bound(edges_top.begin(), edges_top.end(), poly.back(), [](const auto& a, const auto& b) {
+                    return a.first > b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].first;
+                });
+
+                if (next_point == edges_top.end()) {
+                    poly.push_back({0.0, 1.0});
+                    continue;
+                }
+
+                next_tip = &*(next_point);
+            }
+            else if (poly.back().first == 1.0 && poly.back().second != 1.0) {
+                // Binary search to find the index before the current point
+
+                auto next_point = std::upper_bound(edges_right.begin(), edges_right.end(), poly.back(), [](const auto& a, const auto& b) {
+                    return a.second < b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].second;
+                });
+
+                if (next_point == edges_right.end()) {
+                    poly.push_back({1.0, 1.0});
+                    continue;
+                }
+
+                next_tip = &*(next_point);
+            }
+            else if (poly.back().second == 0.0 && poly.back().first != 1.0) {
+                // Binary search to find the index before the current point
+
+                auto next_point = std::upper_bound(edges_bottom.begin(), edges_bottom.end(), poly.back(), [](const auto& a, const auto& b) {
+                    return a.first < b.edges.get()[b.reverse ? b.edges.get().size() - 1 : 0].first;
+                });
+
+                if (next_point == edges_bottom.end()) {
+                    poly.push_back({1.0, 0.0});
+                    continue;
+                }
+
+                next_tip = &*(next_point);
+            }
+
+            DEV_ASSERT(next_tip != nullptr);
+            if (!next_tip->reverse && next_tip->edges.get()[0] == starting_point || next_tip->reverse && next_tip->edges.get().back() == starting_point) {
+                poly.push_back(starting_point);
+                break;
+            }
+            visited[next_tip->index] = true;
+            if (!next_tip->reverse) {
+                for (auto& point : next_tip->edges.get()) {
+                    poly.push_back(point);
+                }
+            }
+            else {
+                for (int i = next_tip->edges.get().size() - 1; i >= 0; i--) {
+                    poly.push_back(next_tip->edges.get()[i]);
+                }
             }
         }
 
+        grid_space_polygon(grid, poly, cellrad, flat, arrays, coastline_geomap, cell_pos);
+    }
 
-        if (RenderUtil3D::enforce_winding(poly3d, true))
-            normals.reverse();
-
-        // Coastline cliffs
-        for (int i = 0; i < out.size(); i++) {
-            auto v1_geo = GeoCoords::from_vector2_representation(out[i]);
-            auto v2_geo = GeoCoords::from_vector2_representation(out[(i + 1) % out.size()]);
-
-            auto v1_world = coastline_geomap->geo_to_world(v1_geo);
-            auto v2_world = coastline_geomap->geo_to_world(v2_geo);
-
-            // Rectangle that goes to 0
-            poly3d.push_back(v1_world + Vector3(0, hmap->getElevation(v1_geo), 0));
-            poly3d.push_back(v2_world + Vector3(0, hmap->getElevation(v2_geo), 0));
-            poly3d.push_back(v2_world);
-
-            poly3d.push_back(v2_world);
-            poly3d.push_back(v1_world);
-            poly3d.push_back(v1_world + Vector3(0, hmap->getElevation(v1_geo), 0));
-
-            for (int j = 0; j < 6; j++) {
-                auto v1 = poly3d[poly3d.size() - 6 + j];
-                auto v2 = poly3d[poly3d.size() - 6 + (j + 1) % 6];
-
-                normals.push_back((v2 - v1).cross(Vector3(0, 1, 0)).normalized());
-            }
-        }
-
-
-        arrays[Mesh::ARRAY_VERTEX].call("append_array", poly3d);
-        arrays[Mesh::ARRAY_NORMAL].call("append_array", normals);
+    for (auto& poly : cell_edges[col_row]->fully_contained_edges) {
+        grid_space_polygon(grid, poly, cellrad, flat, arrays, coastline_geomap, cell_pos);
     }
 }
 
@@ -347,22 +525,40 @@ bool clipLine(double& x1, double& y1, double& x2, double& y2, int grid_x, int gr
             }
         }
     }
+
     return accept;
 }
 
-// Rasterize line on a clipped grid using DDA
-void rasterizeLine(std::vector<std::vector<int>>& grid, double x1, double y1, double x2, double y2) {
-    if (!clipLine(x1, y1, x2, y2, static_cast<int>(grid[0].size()), static_cast<int>(grid.size()))) return; // Clip line to grid; exit if completely outside
+/**
+ * @brief Rasterize a coastline line by stepping one cell at a time. This function has multiple responsibilities, because stepping one cell at a time allows us to kill many birds with one stone:
+ *  - Set the grid cells the line passes through to 1. This way we can only perform the expensive partial rectangle generation on these cells, saving us precious time.
+ *  - For each cell the line passes through, store the line in the cell_edges map, clipped to the cell. This way we can efficiently generate partial rectangles later.
+ *  - For each step, add the step position to the coastline_polyline vector. This way the polyline is grid-aligned and can be used to generate cliffs that perfectly align with the heightmap.
+ * @param grid The land cells grid (full sea/partial/full land)
+ * @param x1 The x-coordinate of the start of the line, in grid space
+ * @param y1 The y-coordinate of the start of the line, in grid space
+ * @param x2 The x-coordinate of the end of the line, in grid space
+ * @param y2 The y-coordinate of the end of the line, in grid space
+ * @param cell_edges A map of cell coordinates to a vector of edges that pass through the cell
+ * @param this_edge A pointer to the current edge vector in the cell_edges map. Moving to another cell pushes a new vector to that cell and sets this_edge to point to it.
+ * @param initial_cell The cell the line started in. Set it to {-1, -1} initially. You can use it to determine if the line has made a full loop.
+ * @param coastline_polyline The vector to store the grid-aligned polyline in.
+ * @returns True if the line is completely outside the grid, false otherwise.
+ * 
+ */
+bool rasterizeLine(std::vector<std::vector<int>>& grid, double x1, double y1, double x2, double y2, std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>>& cell_edges, std::vector<std::pair<double, double>>*& this_edge, std::pair<int, int>& initial_cell, std::vector<std::pair<double, double>>& coastline_polyline) {
+    if (!clipLine(x1, y1, x2, y2, static_cast<int>(grid[0].size()), static_cast<int>(grid.size()))) return false; // Clip line to grid; exit if completely outside
 
     bool print = false;
-    if (x1 > 892.0 && x1 < 922.0 && y1 > 670.0 && y1 < 680.0) {
-        std::cout << "Line from " << x1 << ", " << y1 << " to " << x2 << ", " << y2 << std::endl;
-        print = true;
-    }
-
     double dx = x2 - x1;
     double dy = y2 - y1;
-    double distance = std::sqrt(dx * dx + dy * dy);
+    const double distance = std::sqrt(dx * dx + dy * dy);
+
+    if (distance == 0.0) {
+        return true;
+    }
+
+    double dirX = dx / distance, dirY = dy / distance;
 
     // Use more steps for shorter segments
     int steps = static_cast<int>(std::max(distance * 8, 1.0));  // Oversample by factor of 2
@@ -372,22 +568,88 @@ void rasterizeLine(std::vector<std::vector<int>>& grid, double x1, double y1, do
 
     double x = x1;
     double y = y1;
+    int gridX = static_cast<int>(x), gridY = static_cast<int>(y);
+    if (initial_cell == std::make_pair(-1, -1)) {
+        initial_cell = {gridX, gridY};
+        this_edge->push_back(std::make_pair(x - gridX, y - gridY));
+    }
+ 
+    double remainingDistance = distance;
 
-    for (int i = 0; i <= steps; ++i) {
-        int gridX = std::min(static_cast<int>(grid[0].size()) - 1, std::max(0, static_cast<int>(std::floor(x))));
-        int gridY = std::min(static_cast<int>(grid.size()) - 1, std::max(0, static_cast<int>(std::floor(y))));
+    while (true) {
+        const double left = static_cast<double>(gridX);
+        const double right = static_cast<double>(gridX + 1);
+        const double bottom = static_cast<double>(gridY);
+        const double top = static_cast<double>(gridY + 1);
 
-        if (print) {
-            std::cout << "Set " << gridX << ", " << gridY << std::endl;
+        DEV_ASSERT(x >= left);
+        DEV_ASSERT(x <= right);
+        DEV_ASSERT(y >= bottom);
+        DEV_ASSERT(y <= top);
+
+        double len = std::numeric_limits<double>::max();
+        std::pair<int, int> change = {0, 0};
+
+        if (dirX < 0) {
+            const double lenX = -(x - left) / dirX;
+            if (lenX < len) {
+                len = lenX;
+                change = {-1, 0};
+            }
+        } else if (dirX > 0) {
+            const double lenX = (right - x) / dirX;
+            if (lenX < len) {
+                len = lenX;
+                change = {1, 0};
+            }
         }
+        if (dirY < 0) {
+            const double lenY = -(y - bottom) / dirY;
+            if (lenY < len) {
+                len = lenY;
+                change = {0, -1};
+            }
+        } else if (dirY > 0) {
+            const double lenY = (top - y) / dirY;
+            if (lenY < len) {
+                len = lenY;
+                change = {0, 1};
+            }
+        }
+
+        DEV_ASSERT(len >= 0.0);
+
+        len = std::min(len, remainingDistance);
+
+        x = x + dirX * len;
+        y = y + dirY * len;
+
+        if (this_edge)
+            this_edge->push_back(std::make_pair(x - gridX, y - gridY));
+        coastline_polyline.push_back(std::make_pair(x, y));
+
         grid[gridY][gridX] = 1;
 
-        x += xIncrement;
-        y += yIncrement;
+        remainingDistance -= len;
+
+        if (remainingDistance <= 1e-6) {
+            break;
+        }
+
+        gridX += change.first;
+        gridY += change.second;
+
+        if (!cell_edges[{gridX, gridY}])
+            cell_edges[{gridX, gridY}] = std::make_unique<CellEdges>();
+
+        cell_edges[{gridX, gridY}]->edges.push_back(std::vector<std::pair<double, double>>());
+        this_edge = &cell_edges[{gridX, gridY}]->edges.back();
+        this_edge->push_back(std::make_pair(x - gridX, y - gridY));
     }
 
     if (print)
     std::cout << std::endl;
+    return true;
 }
 
 void bfs_try_add(std::vector<std::vector<int>>& grid, std::queue<std::pair<int, int>>& q, int x, int y, int value) {

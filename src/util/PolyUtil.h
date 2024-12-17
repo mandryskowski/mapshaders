@@ -31,6 +31,7 @@ class PolyUtil : public godot::RefCounted
 public:
     MAPSHADERS_DLL_SYMBOL godot::PackedVector2Array triangulate_with_holes(godot::PackedVector2Array outer, godot::Array holes);
     MAPSHADERS_DLL_SYMBOL std::vector<GeoCoords> triangulate_with_holes(std::vector<GeoCoords> outer, std::vector<std::vector<GeoCoords>> holes);
+    MAPSHADERS_DLL_SYMBOL std::vector<std::pair<double, double>> triangulate_with_holes(std::vector<std::pair<double, double>> outer, std::vector<std::vector<std::pair<double, double>>> holes);
     MAPSHADERS_DLL_SYMBOL godot::Array straight_skeleton(godot::PackedVector2Array outer, godot::Array holes);
 protected:
     static void _bind_methods();
