@@ -4,6 +4,7 @@
 #include "import/osm_parser/OSMParser.h"
 #include "import/elevation/ElevationParser.h"
 #include "import/coastline/CoastlineParser.h"
+#include "import/util/ParserOutputFile.h"
 
 
 #include "import/SGImport.h"
@@ -50,6 +51,9 @@ void initialize_mapshaders(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<OSMParser>();
 	ClassDB::register_class<ElevationParser>();
 	ClassDB::register_class<CoastlineParser>();
+
+	ClassDB::register_class<ParserOutputFile>();
+	ClassDB::register_class<ParserOutputFileHandle>();
 
 	ClassDB::register_abstract_class<OSMHeightmap>();
 	ClassDB::register_class<ElevationHeightmap>();

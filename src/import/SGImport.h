@@ -7,6 +7,7 @@
 #include "GeoMap.h"
 #include "Parser.h"
 #include "osm_parser/OSMHeightmap.h"
+#include "util/ParserOutputFile.h"
 
 class SGImport : public godot::Node
 {
@@ -33,10 +34,14 @@ public:
         parsers = _parsers;
     }
 
-    
+
+    void import(bool);    
     void import_osm(bool);
     void import_elevation(bool);
     void import_coastline(bool);
+
+    void load_tile(unsigned int index);
+    void load_tiles(bool use_threading);
 
     void reset_geo_info(bool);
 
@@ -50,6 +55,13 @@ public:
         set_parsers(parsers);
     }
 
+    void set_output_filename(godot::String _output_filename) {
+        output_filename = _output_filename;
+    }
+    godot::String get_output_filename() const {
+        return output_filename;
+    }
+
 public:
 //    SGImport();
 protected:
@@ -58,12 +70,15 @@ protected:
     friend class OSMParser;
     friend class ElevationParser;
 private:
+    godot::Ref<ParserOutputFile> get_parser_output_file();
     godot::Array node_path_array_to_node_array(godot::Array node_path_array);
 
     godot::Ref<GeoMap> geomap;
     godot::Ref<OSMHeightmap> heightmap;
 
     godot::TypedArray<Parser> parsers;
+
+    godot::String output_filename;
 };
 
 #endif // SGIMPORT_H

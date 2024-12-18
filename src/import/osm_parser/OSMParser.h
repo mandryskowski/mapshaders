@@ -5,6 +5,7 @@
 #include "../../util/GlobalRequirements.h"
 #include "OSMHeightmap.h"
 #include "../TileMap.h"
+#include "../util/ParserOutputFile.h"
 
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -23,14 +24,7 @@ public:
         godot::HashMap<int64_t, godot::Dictionary> relations;
     };
 
-    godot::Ref<GeoMap> import(godot::Ref<GeoMap> geomap = nullptr, godot::Ref<OSMHeightmap> heightmap = nullptr);
-    void load_tile(unsigned int index);
-    void load_tiles(bool);
-
-    void load_tile_test(bool) {
-        load_tile(test_index_to_load);
-    }
-
+    godot::Ref<GeoMap> import(godot::Ref<ParserOutputFileHandle> output_file_handle, godot::Ref<GeoMap> geomap = nullptr, godot::Ref<OSMHeightmap> heightmap = nullptr);
     bool get_true() {
         return true;
     }
@@ -40,13 +34,6 @@ public:
     }
     godot::String get_filename() const {
         return filename;
-    }
-
-    void set_test_index_to_load(int value) {
-        test_index_to_load = value;
-    }
-    int get_test_index_to_load() const {
-        return test_index_to_load;
     }
 
     ~OSMParser() override = default;
@@ -61,9 +48,9 @@ private:
         godot::Ref<GeoMap> geomap;
         godot::Ref<TileMapBase> tilemap;
         godot::Ref<OSMHeightmap> heightmap;
-        godot::Dictionary tile_bytes; // Vector2 -> Array of Ref<StreamPeerBuffer>
+        godot::Ref<ParserOutputFileHandle> output_file_handle;
         World world;
-        ParserInfo() : parser(memnew(godot::XMLParser)), geomap(nullptr), tilemap(nullptr), heightmap(nullptr) {}
+        ParserInfo(godot::Ref<ParserOutputFileHandle> handle) : parser(memnew(godot::XMLParser)), geomap(nullptr), tilemap(nullptr), heightmap(nullptr), output_file_handle(handle) {}
     };
     /* Returns true if this is the deepest node (if we have to pop). */
     bool parse_xml_node(ParserInfo&);
@@ -78,8 +65,6 @@ private:
 
     // Fields
     godot::String filename;
-
-    int test_index_to_load;
 };
  
 #endif // OSMPARSER_H

@@ -87,7 +87,6 @@ void HeightMap::import_grid(ElevationGrid *grid) {
     }
     auto cell_pos = grid->getTopLeftGeo();
     auto left = cell_pos.lon;
-    auto heights = grid->getHeightmap();
     std::vector<std::vector<int>> land_cells(grid->getNrows(), std::vector<int>(grid->getNcols(), 0));
     std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>> coastline_cell_edges;
     Array arrays = RenderUtil3D::get_array_mesh_arrays({Mesh::ARRAY_VERTEX, Mesh::ARRAY_NORMAL});
