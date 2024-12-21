@@ -4,10 +4,14 @@ extends Button
 @export var sgimport : SGImport
 @export var size_slider : Slider
 @onready var download_request : HTTPRequest = $DownloadRequest
+@onready var elevation_request : HTTPRequest = $ElevationRequest
+
+var finish_count : int = 0
 
 func _ready() -> void:
 	self.pressed.connect(self.download)
 	download_request.request_completed.connect(self.finish_download)
+	elevation_request.request_completed.connect(self.finish_download)
 	
 func download():
 	var origin = Vector2(sgimport.geo_map.geo_origin_longitude_degrees, sgimport.geo_map.geo_origin_latitude_degrees)
@@ -21,17 +25,21 @@ func download():
 	print(bb_str)
 	
 	download_request.request("https://overpass-api.de/api/map?bbox=" + bb_str)
+	elevation_request.request("https://portal.opentopography.org/API/globaldem?demtype=NASADEM&south=" + str(origin.y - size) + "&north=" + str(origin.y + size) + "&west=" + str(origin.x - size) + "&east=" + str(origin.x + size) + "&outputFormat=AAIGrid&API_Key=demoapikeyot2022")
+	
 	
 func finish_download(result, response_code, headers, body):
-	print("Finished!")
+	finish_count += 1
+	if finish_count == 1:
+		return
+	print("Finished!", response_code)
 	for parser in sgimport.parsers:
 		if is_instance_of(parser, OSMParser):
 			var parser_osm : OSMParser = parser
 			parser_osm.filename = "res://map.osm"
-	sgimport.import_coastline(false)
-	sgimport.import_osm(false)
-	for parser in sgimport.parsers:
-		if is_instance_of(parser, OSMParser):
-			var parser_osm : OSMParser = parser
-			parser_osm.load_tiles(true)
+		elif is_instance_of(parser, ElevationParser):
+			var parser_elevation : ElevationParser = parser
+			parser_elevation.filename = "res://map.asc"
+	sgimport.import(true)
+	sgimport.load_tiles(true)
 	

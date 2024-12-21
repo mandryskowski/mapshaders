@@ -3,6 +3,7 @@
 #include "../GeoMap.h"
 #include "../Parser.h"
 #include "../../util/Util.h"
+#include "../util/ParserOutputFile.h"
 #include <godot_cpp/variant/typed_array.hpp>
 
 class ElevationGrid : public godot::RefCounted {
@@ -64,7 +65,7 @@ class ElevationParser : public Parser {
     GDCLASS(ElevationParser, Parser);
 public:
     using Parser::Parser;
-    godot::Ref<ElevationGrid> import(godot::Ref<GeoMap> geomap = nullptr);
+    godot::Ref<ElevationGrid> import(godot::Ref<ParserOutputFileHandle> output_file_handle, godot::Ref<GeoMap> geomap = nullptr);
 
     void set_filename(const godot::String& value) {
         filename = value;

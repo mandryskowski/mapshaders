@@ -33,9 +33,18 @@ void OriginBasedGeoMap::_bind_methods() {
 
 /* Equirectangular */
 
+Latitude flat_distance_to_latitude(double distance) {
+    return Latitude::degrees(distance / LATITUDE_DEGREE_IN_METRES);
+}
+
 double latitude_to_flat_distance(Latitude lat) {
     return LATITUDE_DEGREE_IN_METRES * lat.value * 180.0 / Math_PI;
 }
+
+Longitude flat_distance_to_longitude(double distance, Latitude avg_latitude) {
+    return Longitude::degrees(distance / (LATITUDE_DEGREE_IN_METRES * cos(avg_latitude.value)));
+}
+
 double longitude_to_flat_distance(Longitude lon, Latitude avg_latitude) {
     return LATITUDE_DEGREE_IN_METRES * cos(avg_latitude.value) * (lon.value * 180.0 / Math_PI);
 }
@@ -44,7 +53,12 @@ Vector2 geocoords_to_flat_distance(GeoCoords coords, Latitude avg_latitude) {
                    static_cast<real_t>(latitude_to_flat_distance(coords.lat) / UNIT_IN_METRES));
 }
 
-Vector3 EquirectangularGeoMap::geo_to_world_impl(GeoCoords coords) {
+MAPSHADERS_DLL_SYMBOL GeoCoords EquirectangularGeoMap::world_to_geo( const godot::Vector3& world ) {
+    return geo_origin + GeoCoords(flat_distance_to_longitude(world.x, geo_origin.lat), flat_distance_to_latitude(-world.z));
+}
+
+Vector3 EquirectangularGeoMap::geo_to_world_impl( GeoCoords coords )
+{
     // Note: the Y axis is flipped due to godot's righthandedness
 	GeoCoords relative_coords(coords.lon - geo_origin.lon, geo_origin.lat - coords.lat);
     Vector2 world_coords = geocoords_to_flat_distance (relative_coords, geo_origin.lat);

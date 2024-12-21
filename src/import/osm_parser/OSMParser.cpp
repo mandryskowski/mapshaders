@@ -210,7 +210,7 @@ Vector2i OSMParser::get_element_tile(const String& element_type, ParserInfo& pi,
 }
 
 void OSMParser::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("import", "geomap", "heightmap"), &OSMParser::import);
+    ClassDB::bind_method(D_METHOD("import", "output_file_handle", "geomap", "heightmap"), &OSMParser::import);
     ClassDB::bind_method(D_METHOD("set_filename", "value"), &OSMParser::set_filename);
     ClassDB::bind_method(D_METHOD("get_filename"), &OSMParser::get_filename);
     ClassDB::bind_method(D_METHOD("get_true"), &OSMParser::get_true);

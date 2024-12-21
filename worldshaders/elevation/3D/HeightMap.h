@@ -10,7 +10,8 @@ class HeightMap : public godot::Node {
 
 public:
     void import_polygons_geo(godot::Array polygons, GeoMap* geomap);
-    void import_grid(ElevationGrid*);
+    void import_grid(ElevationGrid*, godot::Ref<godot::StreamPeerBuffer> tile_bytes);
+    void load_tile(godot::Ref<godot::FileAccess> fa);
 
     void set_flat_shading(bool flat) {
         flat_shading = flat;

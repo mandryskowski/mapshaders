@@ -44,6 +44,8 @@ public:
 
     virtual godot::Vector2i get_tile_geo(GeoCoords) override;
 
+    GeoCoords get_tile_top_left_geo(const godot::Vector2i& tile) const;
+
     virtual godot::TypedArray<godot::Vector2i> get_tiles_of_interest(GeoCoords coords, double elevation, godot::Vector3 front_vec) override;
 
     static void _bind_methods() {}

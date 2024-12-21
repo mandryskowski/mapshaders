@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include "../../util/Util.h"
+#include "../TileMap.h"
 
 using namespace godot;
 
@@ -195,7 +196,7 @@ Ref<ElevationGrid> loadASCIIGrid(const godot::String& filename) {
 }
 
 // Function to extract a subgrid based on latitude and longitude bounds
-std::vector<std::vector<double>> extractSubgrid(const ElevationGrid& grid, const GeoCoords& start, const GeoCoords& end) {
+Ref<ElevationGrid> extractSubgrid(const ElevationGrid& grid, const GeoCoords& start, const GeoCoords& end) {
     // Calculate row and column indices (same as in GDAL code)
     int rowStart = static_cast<int>(std::floor((grid.getTopLeftGeo().lat - end.lat).get_degrees() / grid.getCellsize()));
     int rowEnd = static_cast<int>(std::floor((grid.getTopLeftGeo().lat - start.lat).get_degrees() / grid.getCellsize()));
@@ -207,14 +208,26 @@ std::vector<std::vector<double>> extractSubgrid(const ElevationGrid& grid, const
     colStart = std::max(0, colStart);
     colEnd = std::min(grid.getNcols() - 1, colEnd);
 
-    // Extract the subgrid
-    std::vector<std::vector<double>> subgrid(std::max(0, rowEnd - rowStart + 1), std::vector<double>(std::max(0, colEnd - colStart + 1)));
+    // Extract the subgrid heightmap
+    std::vector<PackedFloat64Array> sub_heightmap;
     const auto& heightmap = grid.getHeightmap();
     for (int i = rowStart; i <= rowEnd; ++i) {
-        for (int j = colStart; j <= colEnd; ++j) {
-            subgrid[i - rowStart][j - colStart] = static_cast<PackedFloat64Array>(heightmap[i])[j];
-        }
+        sub_heightmap.push_back(static_cast<PackedFloat64Array>(heightmap[i]).slice(colStart, colEnd + 1));
     }
+
+    godot::TypedArray<godot::PackedFloat64Array> gd_heightmap;
+    gd_heightmap.resize(sub_heightmap.size());
+    for (int i = 0; i < sub_heightmap.size(); i++) {
+        gd_heightmap[i] = sub_heightmap[i];
+    }
+
+    Ref<ElevationGrid> subgrid = memnew(ElevationGrid);
+    subgrid->setNcols(colEnd - colStart + 1);
+    subgrid->setNrows(rowEnd - rowStart + 1);
+    subgrid->setCellsize(grid.getCellsize());
+    subgrid->setTopLeftGeo(grid.getTopLeftGeo() + GeoCoords(Longitude::degrees(grid.getCellsize() * colStart), Latitude::degrees(-grid.getCellsize() * rowStart)));
+    subgrid->setHeightmap(gd_heightmap);
+    subgrid->set_geo_map(grid.get_geo_map());
 
     return subgrid;
 }
@@ -262,7 +275,7 @@ void printGrid(const std::vector<std::vector<double>>& grid) {
     }
 }
 
-godot::Ref<ElevationGrid> ElevationParser::import(godot::Ref<GeoMap> geomap) {
+godot::Ref<ElevationGrid> ElevationParser::import(godot::Ref<ParserOutputFileHandle> output_file_handle, godot::Ref<GeoMap> geomap) {
     auto grid = loadASCIIGrid(filename.ascii().ptr());
     if (geomap.is_null()) {
         geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(grid->getTopLeftGeo() - GeoCoords(Longitude::zero(), Latitude::degrees(grid->getCellsize() * grid->getNrows())), grid->getTopLeftGeo() + GeoCoords(Longitude::degrees(grid->getCellsize() * grid->getNcols()), Latitude::zero()))));
@@ -274,15 +287,33 @@ godot::Ref<ElevationGrid> ElevationParser::import(godot::Ref<GeoMap> geomap) {
     WARN_PRINT("Grid top left corner is at " + String::num_real(grid->getTopLeftGeo().lon.get_degrees()) + " " + String::num_real(grid->getTopLeftGeo().lat.get_degrees()));	
     
     auto shader_nodes = this->get_shader_nodes();
-    for (int i = 0; i < shader_nodes.size(); i++) {
-        Object::cast_to<Node>(shader_nodes[i])->call("import_grid", grid);
+    auto tilemap = (memnew(EquirectangularTileMap));
+
+    // Note that we cannot accept partial tiles as they would produce an incomplete heightmap.
+    // So we move the corners by 1 diagonally to the inside to only consider full tiles.
+    auto ul_tile = tilemap->get_tile_geo(grid->getTopLeftGeo()) + Vector2i(1, 1);
+    auto lr_tile = tilemap->get_tile_geo(grid->getTopLeftGeo() + GeoCoords(Longitude::degrees(grid->getCellsize() * grid->getNcols()), Latitude::degrees(-grid->getCellsize() * grid->getNrows()))) - Vector2i(1, 1);
+    std::cout << "UL tile: " << ul_tile.x << " " << ul_tile.y << std::endl;
+    std::cout << "LR tile: " << lr_tile.x << " " << lr_tile.y << std::endl;
+    for (int y = ul_tile.y; y <= lr_tile.y; y++) {
+        for (int x = ul_tile.x; x <= lr_tile.x; x++) {
+            auto tile = Vector2i(x, y);
+            auto tile_ul = tilemap->get_tile_top_left_geo(tile);
+            auto tile_lr = tilemap->get_tile_top_left_geo(tile + Vector2i(1, -1));
+            //auto tile_bytes = output_file_handle->get_parser(tile);
+            auto subgrid = extractSubgrid(*grid.ptr(), tile_ul, tile_lr);
+
+            for (int i = 0; i < shader_nodes.size(); i++) {
+               Object::cast_to<Node>(shader_nodes[i])->call("import_grid", subgrid, output_file_handle->get_parser(tile, i));
+            }
+        }
     }
 
     return grid;
 }
 
 void ElevationParser::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("import", "geomap"), &ElevationParser::import);
+    ClassDB::bind_method(D_METHOD("import", "output_file_handle", "geomap"), &ElevationParser::import);
     ClassDB::bind_method(D_METHOD("set_filename", "value"), &ElevationParser::set_filename);
     ClassDB::bind_method(D_METHOD("get_filename"), &ElevationParser::get_filename);
 

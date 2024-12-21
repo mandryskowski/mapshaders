@@ -14,8 +14,8 @@ public:
     static godot::Vector3 get_centroid(const godot::PackedVector3Array& verts);
     static bool enforce_winding(godot::PackedVector3Array& verts, bool clockwise = true);
     static godot::Array polygon(const godot::PackedVector3Array& verts, double height = 0.0);
-    static godot::Node* achild(godot::Node* parent, godot::Node* child, godot::String name);
-    static godot::MeshInstance3D* area_poly(godot::Node* parent, godot::String name, godot::Array arrays, godot::Color color = godot::Color(1,1,1,1));
+    static godot::Node* achild(godot::Node* parent, godot::Node* child, godot::String name, bool deferred = false);
+    static godot::MeshInstance3D* area_poly(godot::Node* parent, godot::String name, godot::Array arrays, godot::Color color = godot::Color(1,1,1,1), bool deferred = false);
     static godot::Array get_array_mesh_arrays(godot::PackedInt32Array attributes);
     static godot::Array polygon_triangles(godot::PackedVector3Array triangles, double height, godot::PackedVector3Array* normals);
 };

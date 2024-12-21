@@ -228,6 +228,7 @@ public:
     MAPSHADERS_DLL_SYMBOL virtual godot::Vector3 geo_to_world_up (GeoCoords) {
         return godot::Vector3(0.0, 1.0, 0.0);
     }
+    MAPSHADERS_DLL_SYMBOL GeoCoords world_to_geo (const godot::Vector3&);
 
     virtual ~EquirectangularGeoMap() {}	
 

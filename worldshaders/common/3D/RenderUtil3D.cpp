@@ -77,15 +77,21 @@ Array RenderUtil3D::polygon( const PackedVector3Array &verts, double height ) {
     return arrays;
 }
 
-Node* RenderUtil3D::achild(Node* parent, Node* child, String name) {
+Node* RenderUtil3D::achild(Node* parent, Node* child, String name, bool deferred) {
     child->set_name(name);
-    parent->add_child(child);
-    child->set_owner(parent->get_tree()->get_edited_scene_root());
+
+    if (deferred) {
+        parent->call_deferred("add_child", child, true);
+        child->call_deferred("set_owner", parent->get_tree()->get_edited_scene_root());
+    } else {
+        parent->add_child(child);
+        child->set_owner(parent->get_tree()->get_edited_scene_root());
+    }
     return child;
 }
 
-MeshInstance3D* RenderUtil3D::area_poly(Node* parent, String name, Array arrays, Color color) {
-    MeshInstance3D* area = Object::cast_to<MeshInstance3D>(achild(parent, memnew(MeshInstance3D), name));
+MeshInstance3D* RenderUtil3D::area_poly(Node* parent, String name, Array arrays, Color color, bool deferred) {
+    MeshInstance3D* area = Object::cast_to<MeshInstance3D>(achild(parent, memnew(MeshInstance3D), name, deferred));
     ArrayMesh *mesh = memnew(ArrayMesh);
     if (!arrays.is_empty()) {
         mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
@@ -104,11 +110,9 @@ Array RenderUtil3D::get_array_mesh_arrays(PackedInt32Array attributes) {
     Array arrays;
     arrays.resize(Mesh::ARRAY_MAX);
     for (int i = 0; i < attributes.size(); i++) {
-        std::cout << "Attribute: " << attributes[i] << std::endl;
         switch (attributes[i]) {
             case Mesh::ARRAY_VERTEX:
             case Mesh::ARRAY_NORMAL:
-                std::cout << "Vertex/normal\n";
                 arrays[attributes[i]] = PackedVector3Array();
                 break;
             case Mesh::ARRAY_TANGENT:

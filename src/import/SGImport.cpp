@@ -10,8 +10,11 @@ void SGImport::import(bool) {
     auto output_file = get_parser_output_file();
 
     for (int i = 0; i < this->parsers.size(); i++) {
-        Ref<ParserOutputFileHandle> output_file_handle = memnew(ParserOutputFileHandle(output_file, i));
         Ref<Parser> parser = this->parsers[i];
+        if (!parser->is_enabled())
+            continue;
+        Ref<ParserOutputFileHandle> output_file_handle = memnew(ParserOutputFileHandle(output_file, i));
+    
         if (Ref<OSMParser> osm_parser = Object::cast_to<OSMParser>(parser.ptr()); osm_parser.is_valid()) {
             auto returned_geomap = osm_parser->import(output_file_handle, this->geomap, this->heightmap);
     
@@ -20,7 +23,7 @@ void SGImport::import(bool) {
             }
         }
         else if (Ref<ElevationParser> elevation_parser = Object::cast_to<ElevationParser>(parser.ptr()); elevation_parser.is_valid()) {
-            auto returned_grid = elevation_parser->import(this->geomap);
+            auto returned_grid = elevation_parser->import(output_file_handle, this->geomap);
             if (!this->geomap.is_valid()) {
                 this->set_geo_map(returned_grid->get_geo_map());
             }
@@ -38,6 +41,8 @@ void SGImport::import_osm(bool) {
     auto output_file = get_parser_output_file();
     for (int i = 0; i < this->parsers.size(); i++) {
         Ref<Parser> parser = this->parsers[i];
+        if (!parser->is_enabled())
+            continue;
         Ref<OSMParser> osm_parser = Object::cast_to<OSMParser>(parser.ptr());
         if (osm_parser.is_valid()) {
             Ref<ParserOutputFileHandle> output_file_handle = memnew(ParserOutputFileHandle(output_file, i));
@@ -53,22 +58,29 @@ void SGImport::import_osm(bool) {
 }
 
 void SGImport::import_elevation(bool) {
+    auto output_file = get_parser_output_file();
     for (int i = 0; i < this->parsers.size(); i++) {
         Ref<Parser> parser = this->parsers[i];
+        if (!parser->is_enabled())
+            continue;
         Ref<ElevationParser> elevation_parser = Object::cast_to<ElevationParser>(*parser);
         if (elevation_parser.is_valid()) {
-            auto returned_grid = elevation_parser->import(this->geomap);
+            Ref<ParserOutputFileHandle> output_file_handle = memnew(ParserOutputFileHandle(output_file, i));
+            auto returned_grid = elevation_parser->import(output_file_handle, this->geomap);
             if (!this->geomap.is_valid()) {
                 this->set_geo_map(returned_grid->get_geo_map());
             }
             this->heightmap = godot::Ref<OSMHeightmap>(memnew(ElevationHeightmap(returned_grid)));
         }
     }
+    output_file->save();
 }
 
 void SGImport::import_coastline(bool) {
     for (int i = 0; i < this->parsers.size(); i++) {
         Ref<Parser> parser = this->parsers[i];
+        if (!parser->is_enabled())
+            continue;
         Ref<CoastlineParser> coastline_parser = Object::cast_to<CoastlineParser>(parser.ptr());
         if (coastline_parser.is_valid()) {
             coastline_parser->import(this->geomap);
