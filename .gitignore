@@ -46,3 +46,7 @@ __pycache__/*
 *.os
 demo/mapshaders/*
 demo/export/*
+.clangd
+*.osm
+*.sgdmap
+*.asc

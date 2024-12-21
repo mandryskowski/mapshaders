@@ -4,81 +4,70 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/error_macros.hpp>
+
 #include "GeoMap.h"
 #include "Parser.h"
 #include "osm_parser/OSMHeightmap.h"
 #include "util/ParserOutputFile.h"
 
-class SGImport : public godot::Node
-{
-    GDCLASS(SGImport, godot::Node);
 
-public:
+class SGImport : public godot::Node {
+  GDCLASS(SGImport, godot::Node);
 
-    void set_geo_map(godot::Ref<GeoMap> _geomap) {
-        this->geomap = _geomap;
+ public:
+  void set_geo_map(godot::Ref<GeoMap> _geomap) { this->geomap = _geomap; }
+  godot::Ref<GeoMap> get_geo_map() { return geomap; }
+
+  godot::TypedArray<Parser> get_parsers() { return parsers; }
+  void set_parsers(godot::TypedArray<Parser> _parsers) {
+    for (int i = 0; i < _parsers.size(); i++) {
+      Parser* parser = Object::cast_to<Parser>(_parsers[i]);
+      if (parser) parser->set_shader_nodes_reference(this);
     }
-    godot::Ref<GeoMap> get_geo_map() {
-        return geomap;
-    }
+    parsers = _parsers;
+  }
 
-    godot::TypedArray<Parser> get_parsers() {
-        return parsers;
-    }
-    void set_parsers(godot::TypedArray<Parser> _parsers) {
-        for (int i = 0; i < _parsers.size(); i++) {
-            Parser* parser = Object::cast_to<Parser>(_parsers[i]);
-            if (parser)
-                parser->set_shader_nodes_reference(this);
-        }
-        parsers = _parsers;
-    }
+  void import(bool);
+  void import_osm(bool);
+  void import_elevation(bool);
+  void import_coastline(bool);
 
+  void load_tile(unsigned int index);
+  void load_tiles(bool use_threading);
 
-    void import(bool);    
-    void import_osm(bool);
-    void import_elevation(bool);
-    void import_coastline(bool);
+  void reset_geo_info(bool);
 
-    void load_tile(unsigned int index);
-    void load_tiles(bool use_threading);
+  bool get_true() { return true; }
 
-    void reset_geo_info(bool);
+  virtual void _enter_tree() override {
+    Node::_enter_tree();
 
-    bool get_true() {
-        return true;
-    }
+    set_parsers(parsers);
+  }
 
-    virtual void _enter_tree() override {
-        Node::_enter_tree();
+  void set_output_filename(godot::String _output_filename) {
+    output_filename = _output_filename;
+  }
+  godot::String get_output_filename() const { return output_filename; }
 
-        set_parsers(parsers);
-    }
+ public:
+  //    SGImport();
+ protected:
+  static void _bind_methods();
 
-    void set_output_filename(godot::String _output_filename) {
-        output_filename = _output_filename;
-    }
-    godot::String get_output_filename() const {
-        return output_filename;
-    }
+  friend class OSMParser;
+  friend class ElevationParser;
 
-public:
-//    SGImport();
-protected:
-    static void _bind_methods();
+ private:
+  godot::Ref<ParserOutputFile> get_parser_output_file();
+  godot::Array node_path_array_to_node_array(godot::Array node_path_array);
 
-    friend class OSMParser;
-    friend class ElevationParser;
-private:
-    godot::Ref<ParserOutputFile> get_parser_output_file();
-    godot::Array node_path_array_to_node_array(godot::Array node_path_array);
+  godot::Ref<GeoMap> geomap;
+  godot::Ref<OSMHeightmap> heightmap;
 
-    godot::Ref<GeoMap> geomap;
-    godot::Ref<OSMHeightmap> heightmap;
+  godot::TypedArray<Parser> parsers;
 
-    godot::TypedArray<Parser> parsers;
-
-    godot::String output_filename;
+  godot::String output_filename;
 };
 
-#endif // SGIMPORT_H
+#endif  // SGIMPORT_H

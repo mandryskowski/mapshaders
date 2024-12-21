@@ -29,6 +29,7 @@ func import_node(osm_dict : Dictionary, fa : StreamPeer):
 	
 func import_way(osm_dict : Dictionary, fa : StreamPeer):
 	#if osm_dict["id"] != 471388226:
+	
 	#	return
 	if osm_dict.get("building:part", "no") != "no":
 		# mark its nodes as building parts

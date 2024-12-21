@@ -4,19 +4,15 @@
 #include "core/object/ref_counted.h"
 
 class NodeParser : public RefCounted {
-    GDCLASS(NodeParser, RefCounted);
+  GDCLASS(NodeParser, RefCounted);
 
-public:
-    NodeParser(Dictionary&);
+ public:
+  NodeParser(Dictionary&);
 
-    int64_t id() {
-        return d.get("id", -1);
-    }
+  int64_t id() { return d.get("id", -1); }
 
-
-    
-private:
-    Dictionary& d;
+ private:
+  Dictionary& d;
 };
 
-#endif // NODEPARSER_H
+#endif  // NODEPARSER_H

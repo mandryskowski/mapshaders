@@ -8,4 +8,4 @@
 void initialize_mapshaders(godot::ModuleInitializationLevel p_level);
 void uninitialize_mapshaders(godot::ModuleInitializationLevel p_level);
 
-#endif // MS_REGISTERTYPES_H
+#endif  // MS_REGISTERTYPES_H
