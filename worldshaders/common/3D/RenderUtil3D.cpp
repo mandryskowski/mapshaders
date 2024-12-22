@@ -100,8 +100,7 @@ Node* RenderUtil3D::achild(Node* parent, Node* child, String name,
 
 MeshInstance3D* RenderUtil3D::area_poly(Node* parent, String name, Array arrays,
                                         Color color, bool deferred) {
-  MeshInstance3D* area = Object::cast_to<MeshInstance3D>(
-      achild(parent, memnew(MeshInstance3D), name, deferred));
+  MeshInstance3D* area = memnew(MeshInstance3D);
   ArrayMesh* mesh = memnew(ArrayMesh);
   if (!arrays.is_empty()) {
     mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
@@ -113,7 +112,7 @@ MeshInstance3D* RenderUtil3D::area_poly(Node* parent, String name, Array arrays,
   }
 
   area->set_mesh(mesh);
-  return area;
+  return Object::cast_to<MeshInstance3D>(achild(parent, area, name, deferred));
 }
 
 Array RenderUtil3D::get_array_mesh_arrays(PackedInt32Array attributes) {

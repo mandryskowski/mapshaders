@@ -10,7 +10,6 @@
 #include "../../../src/util/PolyUtil.h"
 #include "../../common/3D/RenderUtil3D.h"
 
-
 using namespace godot;
 
 struct CellEdges {
@@ -76,7 +75,7 @@ bool approximately_equal(double a, double b) { return std::abs(a - b) < 1e-12; }
 GeoCoords grid_to_geo(ElevationGrid& grid,
                       const std::pair<double, double>& gridPos) {
   auto cellrad = grid.getCellsize() / 180.0 * Math_PI;
-  return grid.getTopLeftGeo() +
+  return grid.getTopLeftGeo(true) +
          GeoCoords(Longitude::radians(cellrad * gridPos.first),
                    Latitude::radians(-cellrad * gridPos.second));
 }
@@ -121,17 +120,19 @@ void HeightMap::import_grid(ElevationGrid* grid,
   // for (int j = 0; j < children.size(); j++) {
   //     remove_child(Object::cast_to<Node>(children[j]));
   // }
-  if (!(std::abs(grid->getTopLeftGeo().lon.get_degrees() - 24.451) < 0.005 &&
-        std::abs(grid->getTopLeftGeo().lat.get_degrees() - 36.697) < 0.005)) {
+  if (!(std::abs(grid->getTopLeftGeo(true).lon.get_degrees() - 24.451) <
+            0.005 &&
+        std::abs(grid->getTopLeftGeo(true).lat.get_degrees() - 36.697) <
+            0.005)) {
     // return;
   }
   std::cout << std::fixed;
   std::cout << std::setprecision(4);
-  auto cell_pos = grid->getTopLeftGeo();
+  auto cell_pos = grid->getTopLeftGeo(true);
   auto left = cell_pos.lon;
   std::vector<std::vector<CoastTile>> land_cells(
-      grid->getNrows(),
-      std::vector<CoastTile>(grid->getNcols(), CoastTile::NotDetermined));
+      grid->getNrows(true),
+      std::vector<CoastTile>(grid->getNcols(true), CoastTile::NotDetermined));
   std::unordered_map<std::pair<int, int>, std::unique_ptr<CellEdges>>
       coastline_cell_edges;
   std::vector<std::pair<std::vector<std::pair<double, double>>, bool>>
@@ -166,13 +167,15 @@ void HeightMap::import_grid(ElevationGrid* grid,
                                      part_y[(k + 1) % part_y.size()]);
 
         double v1_tile_x =
-            (v1.first - grid->getTopLeftGeo().lon.get_radians()) / cellrad;
+            (v1.first - grid->getTopLeftGeo(true).lon.get_radians()) / cellrad;
         double v1_tile_y =
-            -(v1.second - grid->getTopLeftGeo().lat.get_radians()) / cellrad;
+            -(v1.second - grid->getTopLeftGeo(true).lat.get_radians()) /
+            cellrad;
         double v2_tile_x =
-            (v2.first - grid->getTopLeftGeo().lon.get_radians()) / cellrad;
+            (v2.first - grid->getTopLeftGeo(true).lon.get_radians()) / cellrad;
         double v2_tile_y =
-            -(v2.second - grid->getTopLeftGeo().lat.get_radians()) / cellrad;
+            -(v2.second - grid->getTopLeftGeo(true).lat.get_radians()) /
+            cellrad;
 
         if (!rasterizeLine(land_cells, v1_tile_x, v1_tile_y, v2_tile_x,
                            v2_tile_y, coastline_cell_edges, this_edge,
@@ -217,8 +220,10 @@ void HeightMap::import_grid(ElevationGrid* grid,
         // << std::endl;
         DEV_ASSERT(!initial_edge.empty());
 
-        if (!(initial_edge[0].first == 0.0 || initial_edge[0].first == 1.0 ||
-              initial_edge[0].second == 0.0 || initial_edge[0].second == 1.0))
+        if (!(approximately_equal(initial_edge[0].first, 0.0) ||
+              approximately_equal(initial_edge[0].first, 1.0) ||
+              approximately_equal(initial_edge[0].second, 0.0) ||
+              approximately_equal(initial_edge[0].second, 1.0)))
           ERR_PRINT(
               "Coastline hasn't made a full loop, is not fully contained, but "
               "hasn't started from the grid boundary.");
@@ -240,11 +245,11 @@ void HeightMap::import_grid(ElevationGrid* grid,
 
   // UtilityFunctions::print("Total rows ", grid->getNrows());
 
-  for (int row = 0; row < grid->getNrows(); row++) {
+  for (int row = 0; row < grid->getNrows(true); row++) {
     // if (row % 20 == 0)
     //     UtilityFunctions::print("Row ", row, " out of ", grid->getNrows());
 
-    for (int col = 0; col < grid->getNcols(); col++) {
+    for (int col = 0; col < grid->getNcols(true); col++) {
       if (land_cells[row][col] == CoastTile::NotDetermined) {
         bool sea_cell = true;
         bool found = false;
@@ -293,11 +298,11 @@ void HeightMap::import_grid(ElevationGrid* grid,
   // Save the tile
 
   // Save the grid
-  tile_bytes->put_u64(grid->getNcols());
-  tile_bytes->put_u64(grid->getNrows());
+  tile_bytes->put_u64(grid->getNcols(false));
+  tile_bytes->put_u64(grid->getNrows(false));
   tile_bytes->put_double(grid->getCellsize());
-  tile_bytes->put_double(grid->getTopLeftGeo().lon.get_degrees());
-  tile_bytes->put_double(grid->getTopLeftGeo().lat.get_degrees());
+  tile_bytes->put_double(grid->getTopLeftGeo(false).lon.get_degrees());
+  tile_bytes->put_double(grid->getTopLeftGeo(false).lat.get_degrees());
   tile_bytes->put_var(grid->getHeightmap());
   {
     auto geomap =
@@ -405,7 +410,7 @@ void grid_space_polygon(
 }
 
 void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
-  godot::Ref<ElevationGrid> grid = memnew(ElevationGrid);
+  godot::Ref<ElevationGrid> grid = memnew(ElevationGrid(true));
   {
     grid->setNcols(fa->get_64());
     grid->setNrows(fa->get_64());
@@ -422,8 +427,8 @@ void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
     grid->set_geo_map(geomap);
   }
   std::vector<std::vector<CoastTile>> land_cells(
-      grid->getNrows(),
-      std::vector<CoastTile>(grid->getNcols(), CoastTile::NotDetermined));
+      grid->getNrows(true),
+      std::vector<CoastTile>(grid->getNcols(true), CoastTile::NotDetermined));
 
   // Run-Length Decoding for land_cells
   uint64_t total_runs = fa->get_64();
@@ -434,8 +439,8 @@ void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
     uint16_t run_length = run >> 2;
     for (uint64_t j = cur_pos; j < cur_pos + static_cast<uint64_t>(run_length);
          j++) {
-      land_cells[j / static_cast<uint64_t>(grid->getNcols())]
-                [j % static_cast<uint64_t>(grid->getNcols())] = tile;
+      land_cells[j / static_cast<uint64_t>(grid->getNcols(true))]
+                [j % static_cast<uint64_t>(grid->getNcols(true))] = tile;
     }
     cur_pos += static_cast<uint64_t>(run_length);
   }
@@ -460,17 +465,17 @@ void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
   }
 
   // Generate mesh
-  auto cell_pos = grid->getTopLeftGeo();
+  auto cell_pos = grid->getTopLeftGeo(true);
   auto left = cell_pos.lon;
   auto cellrad = grid->getCellsize() / 180.0 * Math_PI;
   Ref<PolyUtil> pu = memnew(PolyUtil);
 
-  for (int row = 0; row < grid->getNrows(); row++) {
-    for (int col = 0; col < grid->getNcols(); col++) {
+  for (int row = 0; row < grid->getNrows(true); row++) {
+    for (int col = 0; col < grid->getNcols(true); col++) {
       if (land_cells[row][col] == CoastTile::Land)
         generate_full_rectangle(
             {col, row},
-            grid->getTopLeftGeo() +
+            grid->getTopLeftGeo(true) +
                 GeoCoords(Longitude::radians(col * cellrad),
                           Latitude::radians(-row * cellrad)),
             cellrad, grid.ptr(), flat_shading, arrays,
@@ -486,9 +491,10 @@ void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
   }
 
   for (auto& partial_polygon : partial_polygons) {
-    grid_space_polygon(
-        grid.ptr(), pu->triangulate_with_holes(partial_polygon, {}), cellrad,
-        flat_shading, arrays, grid->get_geo_map().ptr(), grid->getTopLeftGeo());
+    grid_space_polygon(grid.ptr(),
+                       pu->triangulate_with_holes(partial_polygon, {}), cellrad,
+                       flat_shading, arrays, grid->get_geo_map().ptr(),
+                       grid->getTopLeftGeo(true));
   }
 
   // Load coastline polylines
@@ -518,12 +524,12 @@ void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
     RenderUtil3D::area_poly(
         this,
         "GroundMesh_" +
-            String::num(grid->getTopLeftGeo().lon.get_degrees(), 3) + "_" +
-            String::num(grid->getTopLeftGeo().lat.get_degrees(), 3),
+            String::num(grid->getTopLeftGeo(true).lon.get_degrees(), 3) + "_" +
+            String::num(grid->getTopLeftGeo(true).lat.get_degrees(), 3),
         arrays, Color(0.745098, 0.745098, 0.745098), true);
 
-  if (std::abs(grid->getTopLeftGeo().lon.get_degrees() - 24.451) < 0.005 &&
-      std::abs(grid->getTopLeftGeo().lat.get_degrees() - 36.697) < 0.005) {
+  if (std::abs(grid->getTopLeftGeo(true).lon.get_degrees() - 24.451) < 0.005 &&
+      std::abs(grid->getTopLeftGeo(true).lat.get_degrees() - 36.697) < 0.005) {
     // Print land_cells
     for (int row = 0; row < land_cells.size(); row++) {
       for (int col = 0; col < land_cells[row].size(); col++) {
@@ -883,8 +889,6 @@ bool rasterizeLine(std::vector<std::vector<CoastTile>>& grid, double x1,
   const auto max_grid_x = static_cast<int>(grid[0].size()),
              max_grid_y = static_cast<int>(grid.size());
   bool break_coastline = false;
-  // FIX: we need to create a new edge if line was clipped
-
   {
     double prev_x1 = x1, prev_y1 = y1;
     double prev_x2 = x2, prev_y2 = y2;

@@ -1,6 +1,5 @@
 #include "ElevationParser.h"
 
-#include <fstream>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/core/error_macros.hpp>
@@ -8,22 +7,29 @@
 #include <string>
 #include <vector>
 
-#include "../../util/Util.h"
 #include "../TileMap.h"
-
 
 using namespace godot;
 
 void ElevationGrid::setNcols(int value) { ncols = value; }
-int ElevationGrid::getNcols() const { return ncols; }
+int ElevationGrid::getNcols(bool one_cell_padding) const {
+  return one_cell_padding && has_one_cell_padding ? ncols - 2 : ncols;
+}
 
 void ElevationGrid::setNrows(int value) { nrows = value; }
-int ElevationGrid::getNrows() const { return nrows; }
+int ElevationGrid::getNrows(bool one_cell_padding) const {
+  return one_cell_padding && has_one_cell_padding ? nrows - 2 : nrows;
+}
 
 void ElevationGrid::setTopLeftGeo(const GeoCoords& value) {
   topLeftGeo = value;
 }
-const GeoCoords& ElevationGrid::getTopLeftGeo() const { return topLeftGeo; }
+GeoCoords ElevationGrid::getTopLeftGeo(bool one_cell_padding) const {
+  return one_cell_padding && has_one_cell_padding
+             ? topLeftGeo + GeoCoords(Longitude::degrees(cellsize),
+                                      Latitude::degrees(-cellsize))
+             : topLeftGeo;
+}
 
 void ElevationGrid::setCellsize(double value) { cellsize = value; }
 double ElevationGrid::getCellsize() const { return cellsize; }
@@ -36,65 +42,20 @@ void ElevationGrid::setHeightmap(const godot::Array& value) {
 }
 godot::Array ElevationGrid::getHeightmap() const { return heightmap; }
 
-godot::Vector3 ElevationGrid::getBottomLeftWorld() const {
-  if (this->geomap == nullptr) {
-    ERR_PRINT("GeoMap is not set");
-    return godot::Vector3();
-  }
-
-  return this->geomap->geo_to_world(
-      getTopLeftGeo() -
-      GeoCoords(Longitude::zero(),
-                Latitude::degrees(getCellsize() * getNrows())));
-}
-
-godot::Vector3 ElevationGrid::getBottomRightWorld() const {
-  if (this->geomap == nullptr) {
-    ERR_PRINT("GeoMap is not set");
-    return godot::Vector3();
-  }
-
-  return this->geomap->geo_to_world(
-      getTopLeftGeo() +
-      GeoCoords(Longitude::degrees(getCellsize() * getNcols()),
-                Latitude::degrees(-getCellsize() * getNrows())));
-}
-
-MAPSHADERS_DLL_SYMBOL godot::Vector3 ElevationGrid::getTopLeftWorld() const {
-  if (this->geomap == nullptr) {
-    ERR_PRINT("GeoMap is not set");
-    return godot::Vector3();
-  }
-
-  return this->geomap->geo_to_world(getTopLeftGeo());
-}
-
-godot::Vector3 ElevationGrid::getTopRightWorld() const {
-  if (this->geomap == nullptr) {
-    ERR_PRINT("GeoMap is not set");
-    return godot::Vector3();
-  }
-
-  return this->geomap->geo_to_world(
-      getTopLeftGeo() +
-      GeoCoords(Longitude::degrees(getCellsize() * getNcols()),
-                Latitude::zero()));
-}
-
 double ElevationGrid::bilinearInterpolation(const GeoCoords& point) const {
   // Convert geographic coordinates to pixel coordinates
   double pixelX =
-      (point.lon - getTopLeftGeo().lon).get_degrees() / getCellsize();
+      (point.lon - getTopLeftGeo(false).lon).get_degrees() / getCellsize();
   double pixelY =
-      (getTopLeftGeo().lat - point.lat).get_degrees() / getCellsize();
+      (getTopLeftGeo(false).lat - point.lat).get_degrees() / getCellsize();
 
   // Get the integer part of the pixel coordinates (nearest pixel indices)
   int col = static_cast<int>(std::floor(pixelX));
   int row = static_cast<int>(std::floor(pixelY));
 
   // Ensure indices are within bounds (same as in GDAL code)
-  col = std::max(0, std::min(col, getNcols() - 2));
-  row = std::max(0, std::min(row, getNrows() - 2));
+  col = std::max(0, std::min(col, getNcols(false) - 2));
+  row = std::max(0, std::min(row, getNrows(false) - 2));
 
   // Calculate fractional parts
   double dx = pixelX - col;
@@ -135,20 +96,6 @@ void ElevationGrid::_bind_methods() {
   ClassDB::bind_method(D_METHOD("get_nodata_value"),
                        &ElevationGrid::getNodataValue);
 
-  ClassDB::bind_method(D_METHOD("get_bottom_left_world"),
-                       &ElevationGrid::getBottomLeftWorld);
-  ClassDB::bind_method(D_METHOD("get_bottom_right_world"),
-                       &ElevationGrid::getBottomRightWorld);
-  ClassDB::bind_method(D_METHOD("get_top_left_world"),
-                       &ElevationGrid::getTopLeftWorld);
-  ClassDB::bind_method(D_METHOD("get_top_right_world"),
-                       &ElevationGrid::getTopRightWorld);
-
-  ClassDB::bind_method(D_METHOD("set_top_left_geo", "value"),
-                       &ElevationGrid::setTopLeftGeoVec);
-  ClassDB::bind_method(D_METHOD("get_top_left_geo"),
-                       &ElevationGrid::getTopLeftGeoVec);
-
   ADD_PROPERTY(PropertyInfo(Variant::INT, "ncols"), "set_ncols", "get_ncols");
   ADD_PROPERTY(PropertyInfo(Variant::INT, "nrows"), "set_nrows", "get_nrows");
   ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cellsize"), "set_cellsize",
@@ -173,7 +120,7 @@ Ref<ElevationGrid> loadASCIIGrid(const godot::String& filename) {
 
   gd_file->close();
 
-  Ref<ElevationGrid> grid = memnew(ElevationGrid);
+  Ref<ElevationGrid> grid = memnew(ElevationGrid(false));
   std::string line;
 
   {
@@ -205,21 +152,21 @@ Ref<ElevationGrid> loadASCIIGrid(const godot::String& filename) {
   std::getline(file, line);
 
   // Initialize the heightmap
-  std::vector<PackedFloat64Array> heightmap(grid->getNrows(),
+  std::vector<PackedFloat64Array> heightmap(grid->getNrows(false),
                                             PackedFloat64Array());
   // Read the elevation data
-  for (int i = 0; i < grid->getNrows(); i++) {
+  for (int i = 0; i < grid->getNrows(false); i++) {
     std::getline(file, line);
     std::istringstream iss(line);
-    heightmap[i].resize(grid->getNcols());
-    for (int j = 0; j < grid->getNcols(); j++) {
+    heightmap[i].resize(grid->getNcols(false));
+    for (int j = 0; j < grid->getNcols(false); j++) {
       iss >> heightmap[i][j];
     }
   }
 
   auto gd_heightmap = TypedArray<PackedFloat64Array>();
-  gd_heightmap.resize(grid->getNrows());
-  for (int i = 0; i < grid->getNrows(); i++) {
+  gd_heightmap.resize(grid->getNrows(false));
+  for (int i = 0; i < grid->getNrows(false); i++) {
     gd_heightmap[i] = heightmap[i];
   }
 
@@ -233,21 +180,29 @@ Ref<ElevationGrid> extractSubgrid(const ElevationGrid& grid,
                                   const GeoCoords& start,
                                   const GeoCoords& end) {
   // Calculate row and column indices (same as in GDAL code)
-  int rowStart = static_cast<int>(std::floor(
-      (grid.getTopLeftGeo().lat - end.lat).get_degrees() / grid.getCellsize()));
+  int rowStart = static_cast<int>(
+      std::floor((grid.getTopLeftGeo(false).lat - end.lat).get_degrees() /
+                 grid.getCellsize()));
   int rowEnd = static_cast<int>(
-      std::floor((grid.getTopLeftGeo().lat - start.lat).get_degrees() /
+      std::floor((grid.getTopLeftGeo(false).lat - start.lat).get_degrees() /
                  grid.getCellsize()));
   int colStart = static_cast<int>(
-      std::floor((start.lon - grid.getTopLeftGeo().lon).get_degrees() /
+      std::floor((start.lon - grid.getTopLeftGeo(false).lon).get_degrees() /
                  grid.getCellsize()));
-  int colEnd = static_cast<int>(std::floor(
-      (end.lon - grid.getTopLeftGeo().lon).get_degrees() / grid.getCellsize()));
+  int colEnd = static_cast<int>(
+      std::floor((end.lon - grid.getTopLeftGeo(false).lon).get_degrees() /
+                 grid.getCellsize()));
+
+  // One cell padding (to ensure seamless tiles)
+  rowStart--;
+  rowEnd++;
+  colStart--;
+  colEnd++;
 
   rowStart = std::max(0, rowStart);
-  rowEnd = std::min(grid.getNrows() - 1, rowEnd);
+  rowEnd = std::min(grid.getNrows(false) - 1, rowEnd);
   colStart = std::max(0, colStart);
-  colEnd = std::min(grid.getNcols() - 1, colEnd);
+  colEnd = std::min(grid.getNcols(false) - 1, colEnd);
 
   // Extract the subgrid heightmap
   std::vector<PackedFloat64Array> sub_heightmap;
@@ -259,16 +214,16 @@ Ref<ElevationGrid> extractSubgrid(const ElevationGrid& grid,
 
   godot::TypedArray<godot::PackedFloat64Array> gd_heightmap;
   gd_heightmap.resize(sub_heightmap.size());
-  for (int i = 0; i < sub_heightmap.size(); i++) {
+  for (int i = 0; i < static_cast<int>(sub_heightmap.size()); i++) {
     gd_heightmap[i] = sub_heightmap[i];
   }
 
-  Ref<ElevationGrid> subgrid = memnew(ElevationGrid);
+  Ref<ElevationGrid> subgrid = memnew(ElevationGrid(true));
   subgrid->setNcols(colEnd - colStart + 1);
   subgrid->setNrows(rowEnd - rowStart + 1);
   subgrid->setCellsize(grid.getCellsize());
   subgrid->setTopLeftGeo(
-      grid.getTopLeftGeo() +
+      grid.getTopLeftGeo(false) +
       GeoCoords(Longitude::degrees(grid.getCellsize() * colStart),
                 Latitude::degrees(-grid.getCellsize() * rowStart)));
   subgrid->setHeightmap(gd_heightmap);
@@ -280,18 +235,18 @@ Ref<ElevationGrid> extractSubgrid(const ElevationGrid& grid,
 double bilinearInterpolation(const ElevationGrid& grid,
                              const GeoCoords& point) {
   // Convert geographic coordinates to pixel coordinates
-  double pixelX =
-      (point.lon - grid.getTopLeftGeo().lon).get_degrees() / grid.getCellsize();
-  double pixelY =
-      (grid.getTopLeftGeo().lat - point.lat).get_degrees() / grid.getCellsize();
+  double pixelX = (point.lon - grid.getTopLeftGeo(false).lon).get_degrees() /
+                  grid.getCellsize();
+  double pixelY = (grid.getTopLeftGeo(false).lat - point.lat).get_degrees() /
+                  grid.getCellsize();
 
   // Get the integer part of the pixel coordinates (nearest pixel indices)
   int col = static_cast<int>(std::floor(pixelX));
   int row = static_cast<int>(std::floor(pixelY));
 
   // Ensure indices are within bounds (same as in GDAL code)
-  col = std::max(0, std::min(col, grid.getNcols() - 2));
-  row = std::max(0, std::min(row, grid.getNrows() - 2));
+  col = std::max(0, std::min(col, grid.getNcols(false) - 2));
+  row = std::max(0, std::min(row, grid.getNrows(false) - 2));
 
   // Calculate fractional parts
   double dx = pixelX - col;
@@ -326,23 +281,26 @@ godot::Ref<ElevationGrid> ElevationParser::import(
   auto grid = loadASCIIGrid(filename.ascii().ptr());
   if (geomap.is_null()) {
     geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(
-        grid->getTopLeftGeo() -
-            GeoCoords(Longitude::zero(), Latitude::degrees(grid->getCellsize() *
-                                                           grid->getNrows())),
-        grid->getTopLeftGeo() +
+        grid->getTopLeftGeo(false) -
             GeoCoords(
-                Longitude::degrees(grid->getCellsize() * grid->getNcols()),
+                Longitude::zero(),
+                Latitude::degrees(grid->getCellsize() * grid->getNrows(false))),
+        grid->getTopLeftGeo(false) +
+            GeoCoords(
+                Longitude::degrees(grid->getCellsize() * grid->getNcols(false)),
                 Latitude::zero()))));
   }
 
   grid->set_geo_map(geomap);
 
-  WARN_PRINT("Loaded grid with " + String::num_int64(grid->getNcols()) +
-             " columns and " + String::num_int64(grid->getNrows()) + " rows " +
-             " and cellsize " + String::num_real(grid->getCellsize()));
+  WARN_PRINT("Loaded grid with " + String::num_int64(grid->getNcols(false)) +
+             " columns and " + String::num_int64(grid->getNrows(false)) +
+             " rows " + " and cellsize " +
+             String::num_real(grid->getCellsize()));
   WARN_PRINT("Grid top left corner is at " +
-             String::num_real(grid->getTopLeftGeo().lon.get_degrees()) + " " +
-             String::num_real(grid->getTopLeftGeo().lat.get_degrees()));
+             String::num_real(grid->getTopLeftGeo(false).lon.get_degrees()) +
+             " " +
+             String::num_real(grid->getTopLeftGeo(false).lat.get_degrees()));
 
   auto shader_nodes = this->get_shader_nodes();
   auto tilemap = (memnew(EquirectangularTileMap));
@@ -350,14 +308,15 @@ godot::Ref<ElevationGrid> ElevationParser::import(
   // Note that we cannot accept partial tiles as they would produce an
   // incomplete heightmap. So we move the corners by 1 diagonally to the inside
   // to only consider full tiles.
-  auto ul_tile = tilemap->get_tile_geo(grid->getTopLeftGeo()) + Vector2i(1, 1);
-  auto lr_tile =
-      tilemap->get_tile_geo(
-          grid->getTopLeftGeo() +
-          GeoCoords(
-              Longitude::degrees(grid->getCellsize() * grid->getNcols()),
-              Latitude::degrees(-grid->getCellsize() * grid->getNrows()))) -
-      Vector2i(1, 1);
+  auto ul_tile =
+      tilemap->get_tile_geo(grid->getTopLeftGeo(false)) + Vector2i(1, 1);
+  auto lr_tile = tilemap->get_tile_geo(
+                     grid->getTopLeftGeo(false) +
+                     GeoCoords(Longitude::degrees(grid->getCellsize() *
+                                                  grid->getNcols(false)),
+                               Latitude::degrees(-grid->getCellsize() *
+                                                 grid->getNrows(false)))) -
+                 Vector2i(1, 1);
   std::cout << "UL tile: " << ul_tile.x << " " << ul_tile.y << std::endl;
   std::cout << "LR tile: " << lr_tile.x << " " << lr_tile.y << std::endl;
   for (int y = ul_tile.y; y <= lr_tile.y; y++) {
