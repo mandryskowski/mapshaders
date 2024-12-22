@@ -7,6 +7,7 @@
 #include "coastline/CoastlineParser.h"
 #include "elevation/ElevationParser.h"
 #include "osm_parser/OSMParser.h"
+#include "util/ThreadPool.h"
 
 using namespace godot;
 
@@ -133,10 +134,10 @@ void SGImport::load_tiles(bool use_threading) {
     return;
   }
 
-  std::vector<std::thread*> threads;
+  ThreadPool* thread_pool = new ThreadPool(8);
 
   for (int i = 0; i < tile_count; i++) {
-    threads.push_back(new std::thread(&SGImport::load_tile, this, i));
+    thread_pool->enqueue(&SGImport::load_tile, this, i);
   }
 }
 
