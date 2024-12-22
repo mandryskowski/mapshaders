@@ -1,5 +1,7 @@
 #include "HeightMap.h"
 
+#include <algorithm>
+#include <functional>
 #include <godot_cpp/classes/geometry2d.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -9,6 +11,7 @@
 #include "../../../../src/import/osm_parser/OSMHeightmap.h"
 #include "../../../src/util/PolyUtil.h"
 #include "../../common/3D/RenderUtil3D.h"
+
 
 using namespace godot;
 
