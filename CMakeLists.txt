@@ -56,6 +56,10 @@ add_subdirectory(extern/poly2tri)
 add_subdirectory(extern/polyskel-cpp-port)
 
 # Add libtiff
+if ( APPLE )
+	set(jpeg FALSE)
+ 	set(old-jpeg FALSE)
+endif()
 add_subdirectory(extern/libtiff)
 set_target_properties(tiff PROPERTIES
 POSITION_INDEPENDENT_CODE ON
