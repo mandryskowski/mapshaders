@@ -8,3 +8,6 @@
 [submodule "extern/godot-cpp"]
 	path = extern/godot-cpp
 	url = https://github.com/IvanInventor/godot-cpp.git
+[submodule "extern/libtiff"]
+	path = extern/libtiff
+	url = https://gitlab.com/libtiff/libtiff.git

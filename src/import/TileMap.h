@@ -4,7 +4,6 @@
 
 #include "GeoMap.h"
 
-
 class TileMapBase : public godot::Resource {
   GDCLASS(TileMapBase, godot::Resource);
 
@@ -48,12 +47,15 @@ class EquirectangularTileMap : public TileMapBase {
 
   virtual godot::Vector2i get_tile_geo(GeoCoords) override;
 
+  godot::Vector2i get_tile_world(EquirectangularGeoMap* geomap,
+                                 const godot::Vector3& world_pos);
+
   GeoCoords get_tile_top_left_geo(const godot::Vector2i& tile) const;
 
   virtual godot::TypedArray<godot::Vector2i> get_tiles_of_interest(
       GeoCoords coords, double elevation, godot::Vector3 front_vec) override;
 
-  static void _bind_methods() {}
+  static void _bind_methods();
 
  private:
   /* In Equirectangular world units. */

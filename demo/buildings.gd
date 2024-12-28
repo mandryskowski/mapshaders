@@ -71,12 +71,14 @@ func get_roof_arrays(d : Dictionary):
 		RoofType.PYRAMIDAL:
 			return RenderUtil.pyramid(nodes, d.get("roof_height", max_height - min_height), max_height)
 		RoofType.SKILLION:
-			return RenderUtil.skillion(nodes, d.get("roof_height", max_height - min_height), max_height, d["roof_dir"])
+			var roof_dir = d.get("roof_dir", 0.0)
+			return RenderUtil.skillion(nodes, d.get("roof_height", max_height - min_height), max_height, roof_dir)
 		RoofType.HIPPED:
 			return RenderUtil.hipped(nodes, d.get("roof_height", max_height - min_height), max_height)
 		RoofType.GABLED:
 			return RenderUtil.hipped(nodes, d.get("roof_height", max_height - min_height), max_height, true)
-
+	return []
+	
 func load_tile(fa : FileAccess):
 	var paths = fa.get_var()
 	
@@ -106,10 +108,12 @@ func load_tile(fa : FileAccess):
 		if one_node_per_building:
 			var building = RenderUtil.achild(self, Node3D.new(), "Building"+path["name"])
 			RenderUtil.area_poly(building, path["name"], walls_arrays, color)
-			RenderUtil.area_poly(building, "roof", roof_arrays, roof_color)
+			if roof_arrays:
+				RenderUtil.area_poly(building, "roof", roof_arrays, roof_color)
 		else:
 			add_to_material_arrays.call(color, '', walls_arrays)
-			add_to_material_arrays.call(roof_color, '', roof_arrays)
+			if roof_arrays:
+				add_to_material_arrays.call(roof_color, '', roof_arrays)
 
 		#if max_height - min_height > 0:
 		#	RenderUtil.area_poly(building, "floor", RenderUtil.polygon(path["nodes"], min_height), color)

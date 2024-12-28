@@ -25,7 +25,7 @@ func download():
 	print(bb_str)
 	
 	download_request.request("https://overpass-api.de/api/map?bbox=" + bb_str)
-	elevation_request.request("https://portal.opentopography.org/API/globaldem?demtype=NASADEM&south=" + str(origin.y - size) + "&north=" + str(origin.y + size) + "&west=" + str(origin.x - size) + "&east=" + str(origin.x + size) + "&outputFormat=AAIGrid&API_Key=demoapikeyot2022")
+	elevation_request.request("https://portal.opentopography.org/API/globaldem?demtype=NASADEM&south=" + str(origin.y - size) + "&north=" + str(origin.y + size) + "&west=" + str(origin.x - size) + "&east=" + str(origin.x + size) + "&API_Key=" + OS.get_environment("OPENTOPOGRAPHY_API_KEY"))
 	
 	
 func finish_download(result, response_code, headers, body):
@@ -39,7 +39,7 @@ func finish_download(result, response_code, headers, body):
 			parser_osm.filename = "res://map.osm"
 		elif is_instance_of(parser, ElevationParser):
 			var parser_elevation : ElevationParser = parser
-			parser_elevation.filename = "res://map.asc"
+			parser_elevation.filename = "res://map.tif"
 	sgimport.import(true)
 	sgimport.load_tiles(true)
 	

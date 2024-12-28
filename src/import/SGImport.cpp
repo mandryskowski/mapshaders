@@ -104,17 +104,22 @@ void SGImport::import_coastline(bool) {
 }
 
 void SGImport::load_tile(unsigned int index) {
-  auto output_file = get_parser_output_file();
-  Ref<FileAccess> fa = output_file->load_tile_fa(index);
+  Ref<FileAccess> fa = get_parser_output_file()->load_tile_fa(index);
+  load_tile(fa);
+}
 
+void SGImport::load_tile(const Vector2i& tile) {
+  Ref<FileAccess> fa = get_parser_output_file()->load_tile_fa(tile);
+  load_tile(fa);
+}
+
+void SGImport::load_tile(Ref<FileAccess> fa) {
   if (!fa.is_valid()) return;
 
   for (int i = 0; i < parsers.size(); i++) {
     TypedArray<Node> shader_nodes =
         Object::cast_to<Parser>(parsers[i])->get_shader_nodes();
     for (int j = 0; j < shader_nodes.size(); j++) {
-      WARN_PRINT("Tile " + String::num_int64(index) + " offset is " +
-                 String::num_int64(fa->get_position()));
       if (fa->get_8() == 1) continue;
       Object::cast_to<Node>(shader_nodes[j])->call("load_tile", fa);
     }
@@ -137,7 +142,9 @@ void SGImport::load_tiles(bool use_threading) {
   ThreadPool* thread_pool = new ThreadPool(8);
 
   for (int i = 0; i < tile_count; i++) {
-    thread_pool->enqueue(&SGImport::load_tile, this, i);
+    thread_pool->enqueue(
+        static_cast<void (SGImport::*)(unsigned int)>(&SGImport::load_tile),
+        this, i);
   }
 }
 
@@ -155,7 +162,9 @@ void SGImport::_bind_methods() {
   ClassDB::bind_method(D_METHOD("import_coastline", "plsrefactor"),
                        &SGImport::import_coastline);
 
-  ClassDB::bind_method(D_METHOD("load_tile", "index"), &SGImport::load_tile);
+  ClassDB::bind_method(
+      D_METHOD("load_tile", "tile"),
+      static_cast<void (SGImport::*)(const Vector2i&)>(&SGImport::load_tile));
   ClassDB::bind_method(D_METHOD("load_tiles", "use_threading"),
                        &SGImport::load_tiles);
 

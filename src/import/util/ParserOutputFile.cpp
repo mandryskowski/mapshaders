@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 
 #include "../Parser.h"
+#include "godot_cpp/classes/stream_peer_buffer.hpp"
 
 using namespace godot;
 
@@ -31,8 +32,9 @@ StreamPeerBuffer* ParserOutputFile::get_parser(const Vector2i& tile,
 }
 
 void ParserOutputFile::save() {
-  Ref<FileAccess> out =
-      FileAccess::open(filename.replace(".osm", ".sgdmap"), FileAccess::WRITE);
+  std::cout << "Saving file " << filename.ascii().ptr() << std::endl;
+  Ref<FileAccess> out = FileAccess::open_compressed(
+      filename.replace(".osm", ".sgdmap"), FileAccess::WRITE);
   PackedInt64Array tile_offs, tile_lens;
 
   // Tile space rect
@@ -41,16 +43,16 @@ void ParserOutputFile::save() {
       max_tile(std::numeric_limits<int>::min(),
                std::numeric_limits<int>::min());
 
-  for (int i = 0; i < tile_bytes.size(); i++) {
-    if (static_cast<Vector2i>(tile_bytes.keys()[i]).x ==
-            std::numeric_limits<int>::min() ||
-        static_cast<Vector2i>(tile_bytes.keys()[i]).y ==
-            std::numeric_limits<int>::min() ||
-        static_cast<Vector2i>(tile_bytes.keys()[i]).x == 0 ||
-        static_cast<Vector2i>(tile_bytes.keys()[i]).y == 0)
+  std::cout << "Tile bytes to go through: " << tile_bytes.size() << std::endl;
+  int i = 0;
+  for (auto it = tile_bytes.begin(); it != tile_bytes.end(); ++it) {
+    auto key = it->key;
+    if (i++ % 100 == 0) std::cout << "Tile " << i << std::endl;
+    if (key.x == std::numeric_limits<int>::min() ||
+        key.y == std::numeric_limits<int>::min() || key.x == 0 || key.y == 0)
       continue;
 
-    Array fas = tile_bytes[tile_bytes.keys()[i]];
+    Array fas = tile_bytes[key];
     bool empty = true;
     for (int j = 0; j < fas.size(); j++) {
       if (static_cast<Ref<StreamPeerBuffer>>(fas[j])->get_position() != 0) {
@@ -61,15 +63,10 @@ void ParserOutputFile::save() {
 
     if (empty) continue;
 
-    WARN_PRINT(
-        String::num_int64(static_cast<Vector2i>(tile_bytes.keys()[i]).x) + " " +
-        String::num_int64(static_cast<Vector2i>(tile_bytes.keys()[i]).y));
-    min_tile = Vector2i(
-        std::min(min_tile.x, static_cast<Vector2i>(tile_bytes.keys()[i]).x),
-        std::min(min_tile.y, static_cast<Vector2i>(tile_bytes.keys()[i]).y));
-    max_tile = Vector2i(
-        std::max(max_tile.x, static_cast<Vector2i>(tile_bytes.keys()[i]).x),
-        std::max(max_tile.y, static_cast<Vector2i>(tile_bytes.keys()[i]).y));
+    min_tile =
+        Vector2i(std::min(min_tile.x, key.x), std::min(min_tile.y, key.y));
+    max_tile =
+        Vector2i(std::max(max_tile.x, key.x), std::max(max_tile.y, key.y));
   }
   WARN_PRINT("Tile space rect: " + String::num_int64(min_tile.x) + " " +
              String::num_int64(min_tile.y) + " " +
@@ -83,16 +80,25 @@ void ParserOutputFile::save() {
         " " + String::num_int64(tile_space_size.y));
     return;
   }
-  // We will store tile offsets at the beginning
 
+  // We will store tile offsets at the beginning
   tile_offs.resize(tile_space_size.x * tile_space_size.y);
   tile_lens.resize(tile_space_size.x * tile_space_size.y);
   out->store_var(tile_offs);
   out->store_var(tile_lens);
 
+  out->store_64(min_tile.x);
+  out->store_64(max_tile.y);
+
+  out->store_64(tile_space_size.x);
+  out->store_64(tile_space_size.y);
+
+  Vector2i top_left_tile(min_tile.x, max_tile.y);
+
   for (int y = 0; y < tile_space_size.y; y++) {
+    if (y % 100 == 0) std::cout << "Row " << y << std::endl;
     for (int x = 0; x < tile_space_size.x; x++) {
-      const Vector2i tile = min_tile + Vector2i(x, y);
+      const Vector2i tile = top_left_tile + Vector2i(x, -y);
       const int i = y * tile_space_size.x + x;
       if (!tile_bytes.has(tile)) continue;
 
@@ -126,7 +132,7 @@ void ParserOutputFile::save() {
 }
 
 Ref<FileAccess> ParserOutputFile::load_tile_fa(unsigned int index) {
-  Ref<FileAccess> fa = FileAccess::open(filename, FileAccess::READ);
+  Ref<FileAccess> fa = FileAccess::open_compressed(filename, FileAccess::READ);
   PackedInt64Array tile_offs, tile_lens;
 
   tile_offs = fa->get_var();
@@ -147,8 +153,58 @@ Ref<FileAccess> ParserOutputFile::load_tile_fa(unsigned int index) {
   return fa;
 }
 
+Ref<FileAccess> ParserOutputFile::load_tile_fa(const Vector2i& tile) {
+  Ref<FileAccess> fa = FileAccess::open_compressed(filename, FileAccess::READ);
+  PackedInt64Array tile_offs, tile_lens;
+
+  tile_offs = fa->get_var();
+  tile_lens = fa->get_var();
+
+  if (tile_offs.size() != tile_lens.size())
+    WARN_PRINT(
+        "Tile offsets count different from tile lengths count. File might be "
+        "corrupted.");
+
+  Vector2i top_left_tile;
+  Vector2i tile_space_size;
+
+  top_left_tile.x = fa->get_64();
+  top_left_tile.y = fa->get_64();
+
+  tile_space_size.x = fa->get_64();
+  tile_space_size.y = fa->get_64();
+
+  if (tile.x < top_left_tile.x || tile.y > top_left_tile.y ||
+      tile.x >= top_left_tile.x + tile_space_size.x ||
+      tile.y <= top_left_tile.y - tile_space_size.y) {
+    WARN_PRINT("Tile " + String::num_int64(tile.x) + " " +
+               String::num_int64(tile.y) + " out of bounds.");
+    WARN_PRINT("Bounds are " + String::num_int64(top_left_tile.x) + " " +
+               String::num_int64(top_left_tile.y) + " " +
+               String::num_int64(top_left_tile.x + tile_space_size.x) + " " +
+               String::num_int64(top_left_tile.y - tile_space_size.y));
+    fa->close();
+    return nullptr;
+  }
+
+  const int index = -(tile.y - top_left_tile.y) * tile_space_size.x +
+                    (tile.x - top_left_tile.x);
+
+  std::cout << "Tile " << tile.x << ", " << tile.y << " index " << index
+            << std::endl;
+
+  if (tile_lens[index] == 0) {
+    fa->close();
+    return nullptr;
+  }
+
+  fa->seek(tile_offs[index]);
+
+  return fa;
+}
+
 unsigned int ParserOutputFile::load_tile_count() const {
-  Ref<FileAccess> fa = FileAccess::open(filename, FileAccess::READ);
+  Ref<FileAccess> fa = FileAccess::open_compressed(filename, FileAccess::READ);
   PackedInt64Array tile_offs = fa->get_var();
   fa->close();
   return tile_offs.size();

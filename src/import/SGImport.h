@@ -10,7 +10,6 @@
 #include "osm_parser/OSMHeightmap.h"
 #include "util/ParserOutputFile.h"
 
-
 class SGImport : public godot::Node {
   GDCLASS(SGImport, godot::Node);
 
@@ -33,6 +32,12 @@ class SGImport : public godot::Node {
   void import_coastline(bool);
 
   void load_tile(unsigned int index);
+  void load_tile(const godot::Vector2i& tile);
+
+ private:
+  void load_tile(godot::Ref<godot::FileAccess> fa);
+
+ public:
   void load_tiles(bool use_threading);
 
   void reset_geo_info(bool);

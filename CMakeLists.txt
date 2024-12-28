@@ -27,6 +27,7 @@ endif()
 # Main project information
 project( mapshaders
     LANGUAGES
+        C
         CXX
     VERSION
         0.1.0
@@ -54,6 +55,17 @@ add_subdirectory(
 add_subdirectory(extern/poly2tri)
 add_subdirectory(extern/polyskel-cpp-port)
 
+# Add libtiff
+add_subdirectory(extern/libtiff)
+set_target_properties(tiff PROPERTIES
+POSITION_INDEPENDENT_CODE ON
+)
+if(WIN32)
+set_target_properties(tiff PROPERTIES
+COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
+)
+endif()
+
 godot_clear_default_flags()
 
 get_target_property(LIBRARY_SUFFIX godot-cpp LIBRARY_SUFFIX)
@@ -77,6 +89,7 @@ target_link_libraries( ${PROJECT_NAME}
         godot-cpp
         poly2tri
         polyskel
+        tiff
 )
 
 # LIB_ARCH is the architecture being built. It is set to the build system's architecture.
@@ -178,4 +191,9 @@ include( ClangFormat )
 #)
 
 get_target_property(GODOT_LINK_FLAGS godot-cpp GODOT_LINK_FLAGS)
+if (MSVC)
+    # Append /NODEFAULTLIB:msvcrt to the godot-cpp link flags
+    list(APPEND GODOT_LINK_FLAGS "/WX:NO")
+    message(${GODOT_LINK_FLAGS})
+endif()
 target_link_options(${PROJECT_NAME} PRIVATE ${GODOT_LINK_FLAGS})

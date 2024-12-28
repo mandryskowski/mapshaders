@@ -4,9 +4,9 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/classes/stream_peer_buffer.hpp>
+#include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <vector>
-
 
 class ParserOutputFile : public godot::RefCounted {
   GDCLASS(ParserOutputFile, godot::RefCounted);
@@ -47,6 +47,8 @@ class ParserOutputFile : public godot::RefCounted {
    * @return The file access which you must close after use
    */
   godot::Ref<godot::FileAccess> load_tile_fa(unsigned int index);
+  godot::Ref<godot::FileAccess> load_tile_fa(const godot::Vector2i& tile);
+
   unsigned int load_tile_count() const;
 
  protected:
@@ -56,7 +58,9 @@ class ParserOutputFile : public godot::RefCounted {
   const std::vector<unsigned int> slot_offsets;
   const unsigned int parser_count;
   const godot::String filename;
-  godot::Dictionary tile_bytes;  // Vector2i -> Array of Ref<StreamPeerBuffer>
+  godot::HashMap<godot::Vector2i,
+                 godot::Array>
+      tile_bytes;  // Vector2i -> Array of Ref<StreamPeerBuffer>
 };
 
 class ParserOutputFileHandle : public godot::RefCounted {

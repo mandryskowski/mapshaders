@@ -2,12 +2,16 @@
 
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/stream_peer_buffer.hpp>
 #include <godot_cpp/core/error_macros.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "../../../extern/libtiff/libtiff/tiffio.h"
 #include "../TileMap.h"
+#include "../util/ThreadPool.h"
 
 using namespace godot;
 
@@ -109,8 +113,183 @@ void ElevationGrid::_bind_methods() {
                "get_nodata_value");
 }
 
+#define TIFFTAG_GEOPIXELSCALE 33550
+#define TIFFTAG_GEOTIEPOINTS 33922
+#define TIFFTAG_GDAL_NODATA 42113
+
+Ref<ElevationGrid> readGeoTIFFInfo(const std::string& filename) {
+  auto grid = memnew(ElevationGrid(false));
+  TIFF* tiff = TIFFOpen(filename.c_str(), "r");
+  if (!tiff) {
+    WARN_PRINT("Failed to open GeoTIFF file.");
+    return {};
+  }
+
+  // 1. Read number of columns and rows
+  uint32_t ncols, nrows;
+  TIFFGetField(tiff, TIFFTAG_IMAGEWIDTH, &ncols);
+  TIFFGetField(tiff, TIFFTAG_IMAGELENGTH, &nrows);
+
+  grid->setNcols(ncols);
+  grid->setNrows(nrows);
+
+  // 2. Read georeferencing tags
+  double* tiePoints;  // Tiepoint structure: [i, j, k, x, y, z]
+  double* scale;      // Pixel scale: [scaleX, scaleY, scaleZ]
+  uint16_t count;
+  if (TIFFGetField(tiff, TIFFTAG_GEOTIEPOINTS, &count, &tiePoints)) {
+    grid->setTopLeftGeo(GeoCoords(Longitude::degrees(tiePoints[3]),
+                                  Latitude::degrees(tiePoints[4])));
+  } else {
+    WARN_PRINT("Failed to retrieve GeoTIFF tiepoints.");
+    return {};
+  }
+
+  if (TIFFGetField(tiff, TIFFTAG_GEOPIXELSCALE, &count, &scale)) {
+    grid->setCellsize(scale[0]);
+  } else {
+    WARN_PRINT("Failed to retrieve GeoTIFF pixel scale.");
+    return {};
+  }
+
+  // 3. Read NODATA value (if present)
+  char* nodataValue = nullptr;
+  if (TIFFGetField(tiff, TIFFTAG_GDAL_NODATA, &count, &nodataValue)) {
+    grid->setNodataValue(std::atoi(nodataValue));
+  } else {
+    grid->setNodataValue(-9999);
+  }
+
+  TIFFClose(tiff);
+  return grid;
+}
+
+void handler(const char* module, const char* fmt, va_list ap) {
+  std::cout << "TIFF error: " << fmt << std::endl;
+}
+
+Ref<ElevationGrid> readGeoTIFF(const std::string& filename) {
+  TIFFSetErrorHandler(handler);
+  std::cout << "Loading " << filename << std::endl;
+  auto grid = readGeoTIFFInfo(filename);
+  TIFF* tiff = TIFFOpen(filename.c_str(), "r");
+  if (!tiff) {
+    std::cout << "Failed to open TIFF file." << std::endl;
+    return nullptr;
+  }
+
+  uint16_t bitsPerSample, samplesPerPixel;
+  TIFFGetField(tiff, TIFFTAG_BITSPERSAMPLE, &bitsPerSample);
+  TIFFGetField(tiff, TIFFTAG_SAMPLESPERPIXEL, &samplesPerPixel);
+
+  std::vector<PackedFloat64Array> heightmap(grid->getNrows(false),
+                                            PackedFloat64Array());
+
+  // Loading stripes
+  if (!TIFFIsTiled(tiff)) {
+    tsize_t scanlineSize = TIFFScanlineSize(tiff);
+    for (int row = 0; row < grid->getNrows(false); row++) {
+      std::vector<uint8_t> scanline(scanlineSize);
+      if (TIFFReadScanline(tiff, scanline.data(), row) < 0) {
+        std::cout << "Error reading scanline " << row << std::endl;
+        TIFFClose(tiff);
+        return nullptr;
+      }
+
+      heightmap[row].resize(grid->getNcols(false));
+      for (int i = 0; i < grid->getNcols(false); i++) {
+        if (bitsPerSample == 8) {
+          heightmap[row][i] = static_cast<double>(scanline[i]);
+        } else if (bitsPerSample == 16) {
+          uint16_t* data = reinterpret_cast<uint16_t*>(scanline.data());
+          heightmap[row][i] = static_cast<double>(data[i]);
+        } else if (bitsPerSample == 32) {
+          float* data = reinterpret_cast<float*>(scanline.data());
+          heightmap[row][i] = static_cast<double>(data[i]);
+        } else {
+          std::cerr << "Unsupported bits per sample: " << bitsPerSample
+                    << std::endl;
+          TIFFClose(tiff);
+          return nullptr;
+        }
+      }
+    }
+  } else {
+    tsize_t tileBufSize = TIFFTileSize(tiff);  // Size of a tile in bytes
+    uint32_t tileWidth, tileLength;
+
+    // Get tile dimensions
+    TIFFGetField(tiff, TIFFTAG_TILEWIDTH, &tileWidth);
+    TIFFGetField(tiff, TIFFTAG_TILELENGTH, &tileLength);
+
+    for (int row = 0; row < grid->getNrows(false); row++)
+      heightmap[row].resize(grid->getNcols(false));
+
+    // Iterate over the grid in tile-sized chunks
+    for (uint32_t row = 0; row < grid->getNrows(false); row += tileLength) {
+      for (uint32_t col = 0; col < grid->getNcols(false); col += tileWidth) {
+        std::vector<uint8_t> tile(tileBufSize);
+        // Read the tile at the current position
+        if (TIFFReadTile(tiff, tile.data(), col / tileWidth, row / tileLength,
+                         0, 0) < 0) {
+          std::cerr << "Error reading tile at (" << col << ", " << row << ")"
+                    << std::endl;
+          continue;
+        }
+
+        // Process the tile data
+        for (uint32_t y = 0;
+             y < tileLength && (row + y) < grid->getNrows(false); ++y) {
+          for (uint32_t x = 0;
+               x < tileWidth && (col + x) < grid->getNcols(false); ++x) {
+            uint32_t index = (y * tileWidth + x) * (bitsPerSample / 8);
+
+            if (bitsPerSample == 8) {
+              heightmap[row + y][col + x] = static_cast<double>(tile[index]);
+            } else if (bitsPerSample == 16) {
+              uint16_t* data = reinterpret_cast<uint16_t*>(tile.data());
+              heightmap[row + y][col + x] = static_cast<double>(data[index]);
+            } else if (bitsPerSample == 32) {
+              float* data = reinterpret_cast<float*>(tile.data());
+              heightmap[row + y][col + x] = static_cast<double>(data[index]);
+            } else {
+              std::cerr << "Unsupported bits per sample: " << bitsPerSample
+                        << std::endl;
+              return {};
+            }
+          }
+        }
+      }
+    }
+  }
+
+  TIFFClose(tiff);
+
+  auto gd_heightmap = TypedArray<PackedFloat64Array>();
+  gd_heightmap.resize(grid->getNrows(false));
+  for (int i = 0; i < grid->getNrows(false); i++) {
+    gd_heightmap[i] = heightmap[i];
+  }
+
+  grid->setHeightmap(gd_heightmap);
+
+  std::cout << "Successfully loaded raster data: " << grid->getNcols(false)
+            << "x" << grid->getNrows(false) << std::endl;
+
+  std::cout << "ncols: " << grid->getNcols(false) << "\n";
+  std::cout << "nrows: " << grid->getNrows(false) << "\n";
+  std::cout << "xllcorner: " << grid->getTopLeftGeo(false).lon.get_degrees()
+            << "\n";
+  std::cout << "yllcorner: " << grid->getTopLeftGeo(false).lat.get_degrees()
+            << "\n";
+  std::cout << "cellsize: " << grid->getCellsize() << "\n";
+  std::cout << "NODATA_value: " << grid->getNodataValue() << "\n";
+
+  return grid;
+}
+
 // Function to load the ASCII Grid
-Ref<ElevationGrid> loadASCIIGrid(const godot::String& filename) {
+Ref<ElevationGrid> readASCIIGrid(const godot::String& filename) {
   Ref<FileAccess> gd_file = FileAccess::open(filename, FileAccess::READ);
   if (!gd_file->is_open()) {
     WARN_PRINT("Could not open file " + filename);
@@ -232,53 +411,23 @@ Ref<ElevationGrid> extractSubgrid(const ElevationGrid& grid,
   return subgrid;
 }
 
-double bilinearInterpolation(const ElevationGrid& grid,
-                             const GeoCoords& point) {
-  // Convert geographic coordinates to pixel coordinates
-  double pixelX = (point.lon - grid.getTopLeftGeo(false).lon).get_degrees() /
-                  grid.getCellsize();
-  double pixelY = (grid.getTopLeftGeo(false).lat - point.lat).get_degrees() /
-                  grid.getCellsize();
-
-  // Get the integer part of the pixel coordinates (nearest pixel indices)
-  int col = static_cast<int>(std::floor(pixelX));
-  int row = static_cast<int>(std::floor(pixelY));
-
-  // Ensure indices are within bounds (same as in GDAL code)
-  col = std::max(0, std::min(col, grid.getNcols(false) - 2));
-  row = std::max(0, std::min(row, grid.getNrows(false) - 2));
-
-  // Calculate fractional parts
-  double dx = pixelX - col;
-  double dy = pixelY - row;
-
-  // Bilinear interpolation
-  const auto& heightmap = grid.getHeightmap();
-  double Q11 = static_cast<PackedFloat64Array>(heightmap[row])[col];
-  double Q21 = static_cast<PackedFloat64Array>(heightmap[row])[col + 1];
-  double Q12 = static_cast<PackedFloat64Array>(heightmap[row + 1])[col];
-  double Q22 = static_cast<PackedFloat64Array>(heightmap[row + 1])[col + 1];
-
-  double elevation = (1 - dx) * (1 - dy) * Q11 + dx * (1 - dy) * Q21 +
-                     (1 - dx) * dy * Q12 + dx * dy * Q22;
-
-  return elevation;
-}
-
-// Function to print the 2D grid
-void printGrid(const std::vector<std::vector<double>>& grid) {
-  for (const auto& row : grid) {
-    for (const auto& value : row) {
-      // std::cout << value << " ";
-    }
-    // std::cout << std::endl;
-  }
-}
-
 godot::Ref<ElevationGrid> ElevationParser::import(
     godot::Ref<ParserOutputFileHandle> output_file_handle,
     godot::Ref<GeoMap> geomap) {
-  auto grid = loadASCIIGrid(filename.ascii().ptr());
+  Ref<ElevationGrid> grid = nullptr;
+
+  if (filename.ends_with(".asc")) {
+    grid = readASCIIGrid(filename.ascii().ptr());
+  } else if (filename.ends_with(".tif")) {
+    grid = readGeoTIFF(ProjectSettings::get_singleton()
+                           ->globalize_path(filename)
+                           .ascii()
+                           .ptr());
+  } else {
+    WARN_PRINT("Unsupported file format.");
+    return {};
+  }
+
   if (geomap.is_null()) {
     geomap = godot::Ref<GeoMap>(memnew(EquirectangularGeoMap(
         grid->getTopLeftGeo(false) -
@@ -319,19 +468,33 @@ godot::Ref<ElevationGrid> ElevationParser::import(
                  Vector2i(1, 1);
   std::cout << "UL tile: " << ul_tile.x << " " << ul_tile.y << std::endl;
   std::cout << "LR tile: " << lr_tile.x << " " << lr_tile.y << std::endl;
+  std::atomic<int32_t> total_tiles = (lr_tile - ul_tile + Vector2i(1, 1)).x *
+                                     (lr_tile - ul_tile + Vector2i(1, 1)).y;
+
+  ThreadPool tp(8);
+  std::mutex mutex;
   for (int y = ul_tile.y; y <= lr_tile.y; y++) {
     for (int x = ul_tile.x; x <= lr_tile.x; x++) {
-      auto tile = Vector2i(x, y);
-      auto tile_ul = tilemap->get_tile_top_left_geo(tile);
-      auto tile_lr = tilemap->get_tile_top_left_geo(tile + Vector2i(1, -1));
-      // auto tile_bytes = output_file_handle->get_parser(tile);
-      auto subgrid = extractSubgrid(*grid.ptr(), tile_ul, tile_lr);
-
-      for (int i = 0; i < shader_nodes.size(); i++) {
-        Object::cast_to<Node>(shader_nodes[i])
-            ->call("import_grid", subgrid,
-                   output_file_handle->get_parser(tile, i));
-      }
+      tp.enqueue([&total_tiles, tilemap, grid, x, y, output_file_handle,
+                  shader_nodes, &mutex]() {
+        if (total_tiles % 1000 == 0)
+          std::cout << "Tiles left " << total_tiles << std::endl;
+        auto tile = Vector2i(x, y);
+        auto tile_ul = tilemap->get_tile_top_left_geo(tile);
+        auto tile_lr = tilemap->get_tile_top_left_geo(tile + Vector2i(1, -1));
+        // auto tile_bytes = output_file_handle->get_parser(tile);
+        auto subgrid = extractSubgrid(*grid.ptr(), tile_ul, tile_lr);
+        for (int i = 0; i < shader_nodes.size(); i++) {
+          godot::StreamPeerBuffer* parser;
+          {
+            std::scoped_lock lock(mutex);
+            parser = output_file_handle->get_parser(tile, i);
+          }
+          Object::cast_to<Node>(shader_nodes[i])
+              ->call("import_grid", subgrid, parser);
+        }
+        total_tiles--;
+      });
     }
   }
 
@@ -346,7 +509,7 @@ void ElevationParser::_bind_methods() {
   ClassDB::bind_method(D_METHOD("get_filename"),
                        &ElevationParser::get_filename);
 
-  ADD_PROPERTY(
-      PropertyInfo(Variant::STRING, "filename", PROPERTY_HINT_FILE, "*.asc"),
-      "set_filename", "get_filename");
+  ADD_PROPERTY(PropertyInfo(Variant::STRING, "filename", PROPERTY_HINT_FILE,
+                            "*.asc,*.tif"),
+               "set_filename", "get_filename");
 }

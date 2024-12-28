@@ -12,7 +12,6 @@
 #include "../../../src/util/PolyUtil.h"
 #include "../../common/3D/RenderUtil3D.h"
 
-
 using namespace godot;
 
 struct CellEdges {
@@ -295,8 +294,21 @@ void HeightMap::import_grid(ElevationGrid* grid,
     cell_pos.lat = cell_pos.lat - Latitude::radians(cellrad);
   }
 
-  // RenderUtil3D::area_poly(this, "GroundMesh", arrays, Color(0.745098,
-  // 0.745098, 0.745098));
+  // Check if all cells are all sea. This allows us
+  // to save the tile as a single byte.
+  bool all_sea = true;
+  for (int row = 0; row < grid->getNrows(true); row++) {
+    for (int col = 0; col < grid->getNcols(true); col++) {
+      if (land_cells[row][col] != CoastTile::Sea) {
+        all_sea = false;
+        break;
+      }
+    }
+  }
+
+  if (all_sea) {
+    return;
+  }
 
   // Save the tile
 
