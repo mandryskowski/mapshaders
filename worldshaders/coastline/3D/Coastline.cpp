@@ -5,7 +5,6 @@
 #include "../../../src/util/PolyUtil.h"
 #include "../../common/3D/RenderUtil3D.h"
 
-
 using namespace godot;
 
 void Coastline::import_polygons_geo(godot::Array polygons,

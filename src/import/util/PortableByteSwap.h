@@ -1,3 +1,4 @@
+// clang-format off
 //  :copyright: (c) 2014-2016 Mathias Panzenböck
 //  :license: Public Domain/MIT, see licenses/MIT.txt for more details.
 //  :modified: Alex Huszagh, 2016. Added Windows-specific pre-processor definitions and byte-swap algorithms.

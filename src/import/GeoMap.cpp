@@ -2,7 +2,6 @@
 
 #include "stdio.h"
 
-
 using namespace godot;
 
 /* Base */

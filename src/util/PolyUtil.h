@@ -9,7 +9,6 @@
 #include "../import/GeoMap.h"
 #include "Util.h"
 
-
 class SkeletonSubtree : public godot::RefCounted {
   GDCLASS(SkeletonSubtree, godot::RefCounted);
 

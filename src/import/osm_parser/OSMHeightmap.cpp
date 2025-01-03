@@ -4,7 +4,6 @@
 
 #include "../elevation/ElevationParser.h"
 
-
 using namespace godot;
 
 ElevationHeightmap::ElevationHeightmap(godot::Ref<ElevationGrid> elevation_grid)

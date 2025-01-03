@@ -5,7 +5,6 @@
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
-
 class GlobalRequirements : public godot::RefCounted {
   GDCLASS(GlobalRequirements, godot::RefCounted);
 

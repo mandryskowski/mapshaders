@@ -5,7 +5,6 @@
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/variant/array.hpp>
 
-
 class Parser : public godot::Resource {
   GDCLASS(Parser, godot::Resource)
  public:

@@ -6,7 +6,6 @@
 
 #include "../../../src/import/GeoMap.h"
 
-
 class Coastline : public godot::Node {
   GDCLASS(Coastline, godot::Node)
 
