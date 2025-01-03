@@ -159,7 +159,7 @@ target_link_libraries( ${PROJECT_NAME}
         polyskel
         tiff
         osmpbf
-        ZLIB::ZLIB
+        ZLIB
 )
 
 # LIB_ARCH is the architecture being built. It is set to the build system's architecture.
