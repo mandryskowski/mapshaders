@@ -54,6 +54,8 @@ add_subdirectory(
 	${CMAKE_CURRENT_BINARY_DIR}/godot-cpp 	# needed because godot-cpp is top directory
 )
 
+include(ExternalProject)
+
 # Add poly2tri and polyskel libraries
 add_subdirectory(extern/poly2tri)
 add_subdirectory(extern/polyskel-cpp-port)
@@ -114,7 +116,22 @@ COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
 )
 endif()
 
-find_package(ZLIB REQUIRED)
+find_package(ZLIB)
+if (NOT ZLIB_FOUND)
+
+ExternalProject_Add(ZLIB
+GIT_REPOSITORY https://github.com/madler/zlib.git
+GIT_TAG master
+GIT_SHALLOW ON
+CMAKE_ARGS
+-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+-DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
+)
+
+endif()
 
 
 godot_clear_default_flags()
