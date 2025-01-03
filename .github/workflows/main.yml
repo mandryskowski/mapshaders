@@ -17,7 +17,6 @@ jobs:
         with:
           clang-format-version: '19'
           exclude-regex: 'extern'
-          fallback-style: 'Google'
 
   build:
     strategy:
