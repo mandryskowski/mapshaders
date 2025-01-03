@@ -49,7 +49,7 @@ class ParserOutputFile : public godot::RefCounted {
   godot::Ref<godot::FileAccess> load_tile_fa(unsigned int index);
   godot::Ref<godot::FileAccess> load_tile_fa(const godot::Vector2i& tile);
 
-  unsigned int load_tile_count() const;
+  int64_t load_tile_count() const;
 
  protected:
   static void _bind_methods() {}

@@ -2,7 +2,6 @@
 
 #include <godot_cpp/classes/multi_mesh.hpp>
 
-
 using namespace godot;
 
 void TreesMulti::import_begin() {
@@ -11,18 +10,19 @@ void TreesMulti::import_begin() {
   this->get_multimesh()->set_instance_count(0);
 }
 
-void TreesMulti::import_node(godot::Dictionary d,
+void TreesMulti::import_node(OSMNodeGD* node,
                              godot::Ref<godot::StreamPeerBuffer> fa) {
-  if (d.get("natural", "") != "tree") return;
+  if (node->get_tag("natural") != "tree") return;
 
   if (!tile_info.has(fa)) {
     tile_info[fa] = Array();
   }
 
-  static_cast<Array>(tile_info[fa]).append(d["pos_elevation"]);
+  static_cast<Array>(tile_info[fa]).append(node->get_pos());
 }
 
 void TreesMulti::import_finished() {
+  std::cout << "No of tiles is " << tile_info.size() << std::endl;
   for (int i = 0; i < tile_info.size(); i++) {
     godot::Ref<godot::StreamPeerBuffer> fa =
         static_cast<godot::Ref<godot::StreamPeerBuffer>>(tile_info.keys()[i]);
@@ -30,7 +30,7 @@ void TreesMulti::import_finished() {
   }
 }
 
-void TreesMulti::load_tile(godot::Ref<godot::FileAccess> fa) {
+void TreesMulti::load_tile(godot::Ref<godot::FileAccess> fa, GeoMap* geomap) {
   Array positions = fa->get_var();
 
   for (int i = 0; i < positions.size(); i++) {
@@ -52,5 +52,6 @@ void TreesMulti::_bind_methods() {
                        &TreesMulti::import_node);
   ClassDB::bind_method(D_METHOD("import_finished"),
                        &TreesMulti::import_finished);
-  ClassDB::bind_method(D_METHOD("load_tile", "fa"), &TreesMulti::load_tile);
+  ClassDB::bind_method(D_METHOD("load_tile", "fa", "geomap"),
+                       &TreesMulti::load_tile);
 }

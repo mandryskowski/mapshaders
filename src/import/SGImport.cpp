@@ -121,7 +121,7 @@ void SGImport::load_tile(Ref<FileAccess> fa) {
         Object::cast_to<Parser>(parsers[i])->get_shader_nodes();
     for (int j = 0; j < shader_nodes.size(); j++) {
       if (fa->get_8() == 1) continue;
-      Object::cast_to<Node>(shader_nodes[j])->call("load_tile", fa);
+      Object::cast_to<Node>(shader_nodes[j])->call("load_tile", fa, geomap);
     }
   }
 

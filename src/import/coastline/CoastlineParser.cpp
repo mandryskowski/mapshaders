@@ -5,7 +5,6 @@
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
-
 #pragma pack(push, 1)  // Ensures that the structs are packed with no padding
 const double R = 6378137.0;  // Earth radius in meters for Mercator
 
@@ -66,7 +65,7 @@ ShapefileFormat getShapefileFormat(const godot::String& prjFilename) {
   std::ifstream prjFile(
       ProjectSettings::get_singleton()->globalize_path(prjFilename).ascii());
   if (!prjFile) {
-    WARN_PRINT("Unable to open .prj file.");
+    WARN_PRINT("Unable to open .prj file " + prjFilename);
     return ShapefileFormat::UNKNOWN;
   }
 

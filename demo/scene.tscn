@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=4 uid="uid://bfop4tj5m4e7k"]
+[gd_scene load_steps=31 format=4 uid="uid://bfop4tj5m4e7k"]
 
 [ext_resource type="Script" path="res://roads.gd" id="1_df378"]
 [ext_resource type="Script" path="res://buildings.gd" id="2_n2nuv"]
@@ -10,16 +10,8 @@
 [ext_resource type="Script" path="res://download_map.gd" id="8_xlvrw"]
 
 [sub_resource type="EquirectangularGeoMap" id="EquirectangularGeoMap_xlvrw"]
-geo_origin_longitude_degrees = 24.4464
-geo_origin_latitude_degrees = 36.7249
-
-[sub_resource type="CoastlineParser" id="CoastlineParser_wrk6k"]
-size_in_degrees = 0.05
-shp_filename = "res://maps/complex_water_polygons.shp"
-shx_filename = "res://maps/complex_water_polygons.shx"
-prj_filename = "res://maps/complex_water_polygons.prj"
-enabled = true
-shader_nodes = Array[NodePath]([NodePath("seas")])
+geo_origin_longitude_degrees = 17.0753
+geo_origin_latitude_degrees = 52.3888
 
 [sub_resource type="CoastlineParser" id="CoastlineParser_ldh8k"]
 size_in_degrees = 0.01
@@ -30,25 +22,21 @@ enabled = true
 shader_nodes = Array[NodePath]([NodePath("HeightMap")])
 
 [sub_resource type="ElevationParser" id="ElevationParser_73fnb"]
-filename = "res://maps/milos_big.asc"
+filename = "res://maps/switzerland_co.tif"
 enabled = true
 shader_nodes = Array[NodePath]([NodePath("HeightMap")])
 
-[sub_resource type="OSMParser" id="OSMParser_r1ivb"]
-filename = "res://maps/milos.osm"
-enabled = true
-shader_nodes = Array[NodePath]([NodePath("buildings")])
-
 [sub_resource type="OSMParser" id="OSMParser_xlvrw"]
-filename = "res://maps/milos.osm"
+filename = "res://maps/zalasewo.osm"
 enabled = true
-shader_nodes = Array[NodePath]([NodePath("TreesMulti")])
+shader_nodes = Array[NodePath]([NodePath("Barriers")])
 
 [sub_resource type="GDScript" id="GDScript_y2354"]
 script/source = "extends SGImport
 
 func _ready() -> void:
-	load_tiles(true)
+	#load_tiles(true)
+	pass
 "
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_auhbu"]
@@ -173,7 +161,9 @@ var _direction = Vector3(0.0, 0.0, 0.0)
 var _velocity = Vector3(0.0, 0.0, 0.0)
 var _acceleration = 100
 var _deceleration = -10
-var _vel_multiplier = 4
+var _vel_multiplier = 4000
+
+var last_tile_load = 0
 
 # Keyboard state
 var _w = false
@@ -184,6 +174,11 @@ var _q = false
 var _e = false
 var _shift = false
 var _alt = false
+
+func _ready() -> void:
+	var sg : SGImport = get_tree().root.get_child(0)
+	var thread = Thread.new()
+	thread.start(load_tiles.bind(sg, sg.geo_map))
 
 func _input(event):
 	# Receives mouse motion
@@ -220,10 +215,25 @@ func _input(event):
 			KEY_ALT:
 				_alt = event.pressed
 
+func load_tiles(sg, geo_map):
+	Thread.set_thread_safety_checks_enabled(false)
+	var tiles_set : Dictionary
+	var tilemap = EquirectangularTileMap.new()
+	while true:
+		var tile = tilemap.get_tile_world(geo_map, self.position)
+		var surround_size = 3
+		for x in range(tile.x - surround_size, tile.x + surround_size):
+			for y in range(tile.y - surround_size, tile.y + surround_size):
+				var this_tile = Vector2i(x, y)
+				if not tiles_set.has(this_tile):
+					sg.load_tile(this_tile)
+					tiles_set[this_tile] = true
+
 # Updates mouselook and movement every frame
 func _process(delta):
 	_update_mouselook()
 	_update_movement(delta)
+	
 
 # Updates camera movement
 func _update_movement(delta):
@@ -279,14 +289,10 @@ func _update_mouselook():
 transform_format = 1
 mesh = SubResource("BoxMesh_xlvrw")
 
-[sub_resource type="SphereMesh" id="SphereMesh_subia"]
-radius = 1.43
-height = 8.407
-
 [node name="SGImport" type="SGImport"]
 geo_map = SubResource("EquirectangularGeoMap_xlvrw")
 output_filename = "res://parsed.sgdmap"
-parsers = Array[Parser]([SubResource("CoastlineParser_wrk6k"), SubResource("CoastlineParser_ldh8k"), SubResource("ElevationParser_73fnb"), SubResource("OSMParser_r1ivb"), SubResource("OSMParser_xlvrw")])
+parsers = Array[Parser]([SubResource("CoastlineParser_ldh8k"), SubResource("ElevationParser_73fnb"), SubResource("OSMParser_xlvrw")])
 script = SubResource("GDScript_y2354")
 
 [node name="trees" type="MultiMeshInstance3D" parent="."]
@@ -337,8 +343,8 @@ visible = false
 mesh = SubResource("SphereMesh_sd2y2")
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(0.931691, 0, 0.363251, 0, 1, 0, -0.363251, 0, 0.931691, 0, 7.28342, 42.0976)
 current = true
+far = 40000.0
 script = SubResource("GDScript_xlvrw")
 
 [node name="PlaceNameButton" type="Button" parent="." node_paths=PackedStringArray("search_node", "item_list", "sgimport")]
@@ -393,7 +399,7 @@ download_file = "res://map.osm"
 timeout = 31.9
 
 [node name="ElevationRequest" type="HTTPRequest" parent="DownloadButton"]
-download_file = "res://map.asc"
+download_file = "res://map.tif"
 timeout = 31.9
 
 [node name="TreesMulti" type="TreesMulti" parent="."]
@@ -402,7 +408,6 @@ multimesh = SubResource("MultiMesh_73fnb")
 [node name="Areas" type="Areas" parent="."]
 
 [node name="HeightMap" type="HeightMap" parent="."]
-flat_shading = false
 cliffs = true
 
 [node name="Coastline" type="Coastline" parent="."]
@@ -413,6 +418,11 @@ add_seabed = true
 material = SubResource("StandardMaterial3D_c12g4")
 add_seabed = true
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 101.071, 0, 103.848)
-mesh = SubResource("SphereMesh_subia")
+[node name="Buildings" type="Buildings" parent="."]
+buildings_as_separate_nodes = true
+
+[node name="Roads" type="Roads" parent="."]
+roads_as_separate_nodes = true
+
+[node name="Barriers" type="Barriers" parent="."]
+barriers_as_separate_nodes = true

@@ -86,6 +86,7 @@ void generate_coastline(std::vector<std::pair<double, double>>& poly,
                         Array& arrays, GeoMap& coastline_geomap,
                         ElevationGrid* grid, bool connect_last_to_first) {
   PackedVector3Array poly3d, normals;
+  PackedVector2Array uv;
   Ref<ElevationHeightmap> hmap = memnew(ElevationHeightmap);
   hmap->set_elevation_grid(grid);
 
@@ -110,10 +111,12 @@ void generate_coastline(std::vector<std::pair<double, double>>& poly,
     auto normal = (v2_world - v1_world).cross(Vector3(0, 1, 0)).normalized();
     for (int l = 0; l < 6; l++) {
       normals.push_back(normal);
+      uv.push_back(Vector2(0, 0));
     }
   }
   arrays[Mesh::ARRAY_VERTEX].call("append_array", poly3d);
   arrays[Mesh::ARRAY_NORMAL].call("append_array", normals);
+  arrays[Mesh::ARRAY_TEX_UV].call("append_array", uv);
 }
 
 void HeightMap::import_grid(ElevationGrid* grid,
@@ -403,6 +406,7 @@ void grid_space_polygon(
     const GeoCoords& cell_pos) {
   PackedVector3Array poly3d;
   PackedVector3Array normals;
+  PackedVector2Array uv;
 
   Ref<ElevationHeightmap> hmap = memnew(ElevationHeightmap);
   hmap->set_elevation_grid(grid);
@@ -418,13 +422,16 @@ void grid_space_polygon(
     } else {
       normals.append(get_normal_from_pos(hmap.ptr(), v_geo, 0.1));
     }
+
+    uv.push_back(Vector2(point.first, point.second));
   }
 
   arrays[Mesh::ARRAY_VERTEX].call("append_array", poly3d);
   arrays[Mesh::ARRAY_NORMAL].call("append_array", normals);
+  arrays[Mesh::ARRAY_TEX_UV].call("append_array", uv);
 }
 
-void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
+void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa, GeoMap* geomap) {
   godot::Ref<ElevationGrid> grid = memnew(ElevationGrid(true));
   {
     grid->setNcols(fa->get_64());
@@ -461,7 +468,7 @@ void HeightMap::load_tile(godot::Ref<godot::FileAccess> fa) {
   }
 
   Array arrays = RenderUtil3D::get_array_mesh_arrays(
-      {Mesh::ARRAY_VERTEX, Mesh::ARRAY_NORMAL});
+      {Mesh::ARRAY_VERTEX, Mesh::ARRAY_NORMAL, Mesh::ARRAY_TEX_UV});
 
   // Load partial polygons
   std::vector<std::vector<std::pair<double, double>>> partial_polygons;
@@ -560,7 +567,8 @@ void HeightMap::_bind_methods() {
                        &HeightMap::import_polygons_geo);
   ClassDB::bind_method(D_METHOD("import_grid", "grid"),
                        &HeightMap::import_grid);
-  ClassDB::bind_method(D_METHOD("load_tile", "fa"), &HeightMap::load_tile);
+  ClassDB::bind_method(D_METHOD("load_tile", "fa", "geomap"),
+                       &HeightMap::load_tile);
   ClassDB::bind_method(D_METHOD("set_flat_shading", "flat"),
                        &HeightMap::set_flat_shading);
   ClassDB::bind_method(D_METHOD("get_flat_shading"),

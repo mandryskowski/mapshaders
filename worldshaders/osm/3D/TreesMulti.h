@@ -5,16 +5,17 @@
 #include <godot_cpp/classes/stream_peer_buffer.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 
+#include "../../../src/import/osm_parser/OSMModelGD.h"
 
 class TreesMulti : public godot::MultiMeshInstance3D {
   GDCLASS(TreesMulti, godot::MultiMeshInstance3D)
 
  public:
   void import_begin();
-  void import_node(godot::Dictionary d, godot::Ref<godot::StreamPeerBuffer> fa);
+  void import_node(OSMNodeGD*, godot::Ref<godot::StreamPeerBuffer> fa);
   void import_finished();
 
-  void load_tile(godot::Ref<godot::FileAccess> fa);
+  void load_tile(godot::Ref<godot::FileAccess> fa, GeoMap* geomap);
 
  protected:
   static void _bind_methods();

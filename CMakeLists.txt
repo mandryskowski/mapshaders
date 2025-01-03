@@ -18,6 +18,9 @@ list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/" )
 # Output compile commands to compile_commands.json (for debugging CMake issues)
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Build universal lib on macOS
 # Note that CMAKE_OSX_ARCHITECTURES must be set before project().
 if ( APPLE )
@@ -56,7 +59,7 @@ add_subdirectory(extern/poly2tri)
 add_subdirectory(extern/polyskel-cpp-port)
 
 # Add libtiff
-add_subdirectory(extern/libtiff)
+add_subdirectory(extern/libtiff EXCLUDE_FROM_ALL)
 set_target_properties(tiff PROPERTIES
 POSITION_INDEPENDENT_CODE ON
 )
@@ -65,6 +68,54 @@ set_target_properties(tiff PROPERTIES
 COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
 )
 endif()
+
+# Add OSM-binary (including protobuf)
+set(PROTOBUF_ABSL_PROVIDER "package")
+set(PROTOBUF_SUBMODULE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/protobuf)
+#set(PROTOBUF_INSTALL_DIR build/protobuf)
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory(extern/protobuf EXCLUDE_FROM_ALL)
+
+# Add the OSM-binary library (submodule)
+set(Protobuf_INCLUDE_DIR ${PROTOBUF_SUBMODULE_DIR}/src)
+set(Protobuf_PROTOC_EXECUTABLE $<TARGET_FILE:protoc>)
+
+# Add the OSM-binary library (submodule)
+set(OSM_BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/OSM-binary)
+set(Protobuf_LIBRARIES protobuf::libprotobuf)
+include(extern/protobuf/cmake/protobuf-generate.cmake)
+set(OSM_PROTOC_EXECUTABLE ${Protobuf_PROTOC_EXECUTABLE})
+set(OSM_PROTOBUF_INCLUDE_DIR ${Protobuf_INCLUDE_DIR})
+
+message("Protobuf include dir is ${OSM_PROTOBUF_INCLUDE_DIR}")
+message("Protobuf protoc executable is ${OSM_PROTOC_EXECUTABLE}")
+
+add_subdirectory(${OSM_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+
+target_compile_definitions(osmpbf PRIVATE
+    PROTOBUF_PROTOC_EXECUTABLE=${OSM_PROTOC_EXECUTABLE}
+    PROTOBUF_INCLUDE_DIR=${OSM_PROTOBUF_INCLUDE_DIR}
+)
+
+set_target_properties(osmpbf PROPERTIES
+POSITION_INDEPENDENT_CODE ON
+)
+set_target_properties(osmpbf_shared PROPERTIES
+POSITION_INDEPENDENT_CODE ON
+)
+if(WIN32)
+set_target_properties(osmpbf PROPERTIES
+COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
+)
+set_target_properties(osmpbf_shared PROPERTIES
+COMPILE_OPTIONS "$<$<CONFIG:Debug>:/MTd>$<$<CONFIG:Release>:/MT>"
+)
+endif()
+
+find_package(ZLIB REQUIRED)
+
 
 godot_clear_default_flags()
 
@@ -90,6 +141,8 @@ target_link_libraries( ${PROJECT_NAME}
         poly2tri
         polyskel
         tiff
+        osmpbf
+        ZLIB::ZLIB
 )
 
 # LIB_ARCH is the architecture being built. It is set to the build system's architecture.
@@ -110,6 +163,15 @@ message( STATUS "Building ${PROJECT_NAME} for ${LIB_ARCH} on ${CMAKE_SYSTEM_NAME
 set( BUILD_OUTPUT_DIR "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/" )
 
 message( "Build output directory: ${BUILD_OUTPUT_DIR}")
+
+# Include Protobuf and OSM-binary headers
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${OSM_PROTOBUF_INCLUDE_DIR}
+    ${osmpbf_SOURCE_DIR}/include
+    ${absl_SOURCE_DIR}
+    ${osmpbf_BINARY_DIR}
+    ${zlib_SOURCE_DIR}
+)
 
 get_target_property(GODOT_C_FLAGS godot-cpp GODOT_C_FLAGS)
 get_target_property(GODOT_CXX_FLAGS godot-cpp GODOT_CXX_FLAGS)

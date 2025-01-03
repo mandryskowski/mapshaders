@@ -5,6 +5,7 @@
 #include "import/SGImport.h"
 #include "import/coastline/CoastlineParser.h"
 #include "import/elevation/ElevationParser.h"
+#include "import/osm_parser/OSMModelGD.h"
 #include "import/osm_parser/OSMParser.h"
 #include "import/util/ParserOutputFile.h"
 
@@ -18,10 +19,12 @@
 #include "../worldshaders/coastline/3D/Coastline.h"
 #include "../worldshaders/elevation/3D/HeightMap.h"
 #include "../worldshaders/osm/3D/Areas.h"
+#include "../worldshaders/osm/3D/Barriers.h"
+#include "../worldshaders/osm/3D/Buildings.h"
+#include "../worldshaders/osm/3D/Roads.h"
 #include "../worldshaders/osm/3D/TreesMulti.h"
 #include "util/GlobalRequirementsBuilder.h"
 #include "util/PolyUtil.h"
-
 
 using namespace godot;
 
@@ -48,6 +51,9 @@ void initialize_mapshaders(ModuleInitializationLevel p_level) {
 
   ClassDB::register_abstract_class<Parser>();
   ClassDB::register_class<OSMParser>();
+  ClassDB::register_class<OSMNodeGD>();
+  ClassDB::register_class<OSMWayGD>();
+  ClassDB::register_class<OSMRelationGD>();
   ClassDB::register_class<ElevationParser>();
   ClassDB::register_class<CoastlineParser>();
 
@@ -59,6 +65,9 @@ void initialize_mapshaders(ModuleInitializationLevel p_level) {
 
   ClassDB::register_class<TreesMulti>();
   ClassDB::register_class<Areas>();
+  ClassDB::register_class<Buildings>();
+  ClassDB::register_class<Barriers>();
+  ClassDB::register_class<Roads>();
 
   ClassDB::register_class<HeightMap>();
 

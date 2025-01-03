@@ -7,7 +7,6 @@
 #include "../../extern/polyskel-cpp-port/polyskel.h"
 #include "../../extern/polyskel-cpp-port/vec.h"
 
-
 using namespace godot;
 
 Vector2 SkeletonSubtree::get_source() const { return source; }

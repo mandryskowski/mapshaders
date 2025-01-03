@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "../../../src/import/GeoMap.h"
-
+#include "godot_cpp/variant/packed_color_array.hpp"
 
 class RenderUtil3D {
  public:
@@ -18,13 +18,23 @@ class RenderUtil3D {
   static godot::Vector3 get_centroid(const godot::PackedVector3Array& verts);
   static bool enforce_winding(godot::PackedVector3Array& verts,
                               bool clockwise = true);
+  static bool enforce_winding(std::vector<GeoCoords>& coords,
+                              bool clockwise = true);
   static godot::Array polygon(const godot::PackedVector3Array& verts,
                               double height = 0.0);
+  static void combine_mesh_arrays(godot::Array& dest, godot::Array& src);
   static godot::Node* achild(godot::Node* parent, godot::Node* child,
                              godot::String name, bool deferred = false);
+  static godot::Array wall_poly(godot::PackedVector3Array& verts,
+                                double min_height, double max_height);
   static godot::MeshInstance3D* area_poly(
       godot::Node* parent, godot::String name, godot::Array arrays,
       godot::Color color = godot::Color(1, 1, 1, 1), bool deferred = false);
+  static godot::MeshInstance3D* area_multipoly(godot::Node* parent,
+                                               godot::String name,
+                                               godot::Array arrays_of_arrays,
+                                               godot::PackedColorArray colors,
+                                               bool deferred = false);
   static godot::Array get_array_mesh_arrays(godot::PackedInt32Array attributes);
   static godot::Array polygon_triangles(godot::PackedVector3Array triangles,
                                         double height,

@@ -7,7 +7,6 @@
 
 #include "../util/Util.h"
 
-
 /*
        LATITUDE
           ^
@@ -35,60 +34,42 @@ latitude.
    7x5, 1x9... NOTE: World = Godot scene World =/= Earth
 */
 
-struct Longitude {
+template <typename T>
+struct AngleMeasurement {
   double value;  // in radians
 
-  static Longitude degrees(double degrees) {
-    return Longitude(degrees * Math_PI / 180.0);
+  static T degrees(double degrees) { return T(degrees * Math_PI / 180.0); }
+
+  static T nanodegrees(int64_t nanodegrees) {
+    return T(nanodegrees * Math_PI / 180.0 / 1000000000.0);
   }
 
-  static Longitude radians(double radians) { return Longitude(radians); }
+  static T radians(double radians) { return T(radians); }
 
-  static Longitude zero() { return Longitude(0.0); }
+  static T zero() { return T(0.0); }
 
   double get_radians() const { return value; }
 
   double get_degrees() const { return value * 180.0 / Math_PI; }
 
-  Longitude operator+(Longitude rhs) const {
-    return Longitude(value + rhs.value);
-  }
+  T operator+(T rhs) const { return T(value + rhs.value); }
 
-  Longitude operator-(Longitude rhs) const {
-    return Longitude(value - rhs.value);
-  }
+  T operator-(T rhs) const { return T(value - rhs.value); }
 
-  Longitude operator*(double scalar) const { return Longitude(value * scalar); }
+  T operator*(double scalar) const { return T(value * scalar); }
 
- private:
-  explicit Longitude(double rad)
-      : value(rad) { /* ASSERT (value >= 0.0 && value < 2pi)*/ }
+  T operator/(double scalar) const { return T(value / scalar); }
+
+ protected:
+  explicit AngleMeasurement(double rad) : value(rad) {}
 };
 
-struct Latitude {
-  double value;  // in radians
+struct Longitude : public AngleMeasurement<Longitude> {
+  explicit Longitude(double rad) : AngleMeasurement(rad) {}
+};
 
-  static Latitude degrees(double degrees) {
-    return Latitude(degrees * Math_PI / 180.0);
-  }
-
-  static Latitude radians(double radians) { return Latitude(radians); }
-
-  static Latitude zero() { return Latitude(0.0); }
-
-  double get_radians() const { return value; }
-
-  double get_degrees() const { return value * 180.0 / Math_PI; }
-
-  Latitude operator+(Latitude rhs) const { return Latitude(value + rhs.value); }
-
-  Latitude operator-(Latitude rhs) const { return Latitude(value - rhs.value); }
-
-  Latitude operator*(double scalar) const { return Latitude(value * scalar); }
-
- private:
-  explicit Latitude(double rad)
-      : value(rad) { /* ASSERT (value <= pi/2 && value >= -pi/2)*/ }
+struct Latitude : public AngleMeasurement<Latitude> {
+  explicit Latitude(double rad) : AngleMeasurement(rad) {}
 };
 
 struct GeoCoords {

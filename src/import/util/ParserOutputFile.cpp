@@ -203,7 +203,7 @@ Ref<FileAccess> ParserOutputFile::load_tile_fa(const Vector2i& tile) {
   return fa;
 }
 
-unsigned int ParserOutputFile::load_tile_count() const {
+int64_t ParserOutputFile::load_tile_count() const {
   Ref<FileAccess> fa = FileAccess::open_compressed(filename, FileAccess::READ);
   PackedInt64Array tile_offs = fa->get_var();
   fa->close();

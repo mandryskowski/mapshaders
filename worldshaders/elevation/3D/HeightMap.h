@@ -6,7 +6,6 @@
 #include "../../../src/import/GeoMap.h"
 #include "../../../src/import/elevation/ElevationParser.h"
 
-
 class HeightMap : public godot::Node {
   GDCLASS(HeightMap, godot::Node)
 
@@ -14,7 +13,7 @@ class HeightMap : public godot::Node {
   void import_polygons_geo(godot::Array polygons, GeoMap* geomap);
   void import_grid(ElevationGrid*,
                    godot::Ref<godot::StreamPeerBuffer> tile_bytes);
-  void load_tile(godot::Ref<godot::FileAccess> fa);
+  void load_tile(godot::Ref<godot::FileAccess> fa, GeoMap* geomap);
 
   void set_flat_shading(bool flat) { flat_shading = flat; }
   bool get_flat_shading() const { return flat_shading; }
